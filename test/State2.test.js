@@ -6,7 +6,7 @@ test('State: Phase and Phase Ready State are independent', () => {
     // Phase and Phase Ready State don't mutually constrain each other in validation
     assert.doesNotThrow(() => {
          validateConfigValue('Current Phase', 'SETUP');
-         validateConfigValue('Phase Ready State', 'VACATION_SENIORITY'); // valid independently
+         validateConfigValue('Phase Ready State', 'READY_VACATION_SENIORITY'); // valid independently
     });
 });
 

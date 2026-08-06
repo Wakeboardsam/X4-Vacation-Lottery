@@ -113,6 +113,9 @@ class MockSheet {
   getRange(row, col, numRows = 1, numCols = 1) {
     return new MockRange(this, row, col, numRows, numCols);
   }
+  getMaxRows() {
+    return this.data.length;
+  }
   getLastRow() {
     return this.data.length;
   }
@@ -209,7 +212,15 @@ class MockRange {
     }
     return this.setDataValidations(v);
   }
-  getDataValidations() {
+  getDataValidation() {
+      const r = this.row - 1;
+      const c = this.col - 1;
+      if (this.sheet.validations[r] && this.sheet.validations[r][c]) {
+          return this.sheet.validations[r][c];
+      }
+      return null;
+    }
+    getDataValidations() {
     const vals = [];
     for (let r = 0; r < this.numRows; r++) {
       const rowVals = [];
@@ -264,7 +275,24 @@ class MockRange {
     }
     return vals;
   }
-  setNumberFormat(format) { return this; }
+  getNumberFormat() {
+      if (this.sheet.formats && this.sheet.formats[this.row-1] && this.sheet.formats[this.row-1][this.col-1]) {
+          return this.sheet.formats[this.row-1][this.col-1];
+      }
+      return '';
+    }
+    setNumberFormat(format) {
+      if (!this.sheet.formats) this.sheet.formats = [];
+      for (let i = 0; i < this.numRows; i++) {
+        for (let j = 0; j < this.numCols; j++) {
+          const r = this.row - 1 + i;
+          const c = this.col - 1 + j;
+          if (!this.sheet.formats[r]) this.sheet.formats[r] = [];
+          this.sheet.formats[r][c] = format;
+        }
+      }
+      return this;
+    }
   setBackgrounds(backgrounds) {
     for (let r = 0; r < this.numRows; r++) {
       if (!this.sheet.backgrounds[this.row - 1 + r]) {
@@ -292,12 +320,31 @@ class MockRange {
   }
 }
 
-class MockDataValidationBuilder {
+class MockDataValidation {
+        constructor(builder) {
+            this.criteriaType = builder.type || '';
+            this.args = builder.args || [];
+            this.helpText = builder.helpText || '';
+            this._allowInvalid = builder._allowInvalid !== false;
+        }
+        getCriteriaType() { return this.criteriaType; }
+        getCriteriaValues() { return this.args; }
+        getHelpText() { return this.helpText; }
+        getAllowInvalid() { return this._allowInvalid; }
+    }
+
+    class MockDataValidationBuilder {
   constructor() {
     this.type = null;
     this.args = [];
   }
-  requireCheckbox() {
+  requireFormulaSatisfied(formula) { this.type = 'FORMULA'; this.args = [formula]; return this; }
+      setHelpText(text) { this.helpText = text; return this; }
+      getCriteriaType() { return this.type || ''; }
+      getCriteriaValues() { return this.args || []; }
+      getHelpText() { return this.helpText || ''; }
+      getAllowInvalid() { return this._allowInvalid !== false; }
+      requireCheckbox() {
     this.type = 'CHECKBOX';
     return this;
   }

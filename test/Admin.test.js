@@ -28,3 +28,43 @@ test('Admin: Endpoints succeed with valid session', () => {
     assert.equal(stateRes.ok, true);
     assert.ok(stateRes.data['Schema Version']);
 });
+
+test('Security: Public API allowlist enforced', () => {
+    const fs = require('fs');
+    const path = require('path');
+
+    const allowlist = new Set([
+        'doGet',
+        'onOpen',
+        'apiLoginParticipant',
+        'apiLoginAdmin',
+        'apiLogout',
+        'apiResolveParticipant',
+        'apiGetAdminState',
+        'apiRunAdminInit',
+        'apiInspectSchema'
+    ]);
+
+    const codeFile = fs.readFileSync(path.join(__dirname, '../Code.gs'), 'utf8');
+    const authFile = fs.readFileSync(path.join(__dirname, '../Auth.gs'), 'utf8');
+    const schemaFile = fs.readFileSync(path.join(__dirname, '../Schema.gs'), 'utf8');
+    const stateFile = fs.readFileSync(path.join(__dirname, '../State.gs'), 'utf8');
+    const utilsFile = fs.readFileSync(path.join(__dirname, '../Utils.gs'), 'utf8');
+    const adminFile = fs.readFileSync(path.join(__dirname, '../Admin.gs'), 'utf8');
+
+    const allFiles = codeFile + authFile + schemaFile + stateFile + utilsFile + adminFile;
+
+    // Find all top-level functions
+    const regex = /^function\s+([a-zA-Z0-9_]+)\s*\(/gm;
+    let match;
+    const failures = [];
+
+    while ((match = regex.exec(allFiles)) !== null) {
+        const funcName = match[1];
+        if (!funcName.endsWith('_') && !allowlist.has(funcName)) {
+            failures.push(funcName);
+        }
+    }
+
+    assert.deepEqual(failures, [], 'Found public functions not on the allowlist or without trailing underscore');
+});

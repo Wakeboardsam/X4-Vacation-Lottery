@@ -74,9 +74,6 @@ test('State: writeConfigState fails on invalid update', () => {
 });
 
 test('State: simulate atomic write failure does not leave partial state', () => {
-    // In our simplified mock, an error thrown mid-loop during setValue would leave partial state.
-    // However, our code collects all valid updates *first* and then applies them,
-    // ensuring validation catches issues before any writes.
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const sheet = ss.insertSheet('Config');
     sheet.appendRow(['Key', 'Value']);
@@ -84,14 +81,28 @@ test('State: simulate atomic write failure does not leave partial state', () => 
          sheet.appendRow([k, DEFAULT_CONFIG[k]]);
     }
 
-    // To properly simulate, we need a custom mock scenario if we wanted an internal error,
-    // but the required test is that invalid data doesn't partially update.
+    // Mock Range.setValues to throw an error for this test
+    const originalGetRange = sheet.getRange.bind(sheet);
+    let setValuesCalled = 0;
+
+    sheet.getRange = function(row, col, numRows, numCols) {
+        const range = originalGetRange(row, col, numRows, numCols);
+        const originalSetValues = range.setValues.bind(range);
+
+        range.setValues = function(values) {
+            setValuesCalled++;
+            throw new Error('Simulated production failure');
+        };
+        return range;
+    };
+
     assert.throws(() => {
         writeConfigState({
-            'Current Phase': 'VACATION_SENIORITY', // valid
-            'Current Vacation Round': 'BOGUS'      // invalid
+            'Current Phase': 'VACATION_SENIORITY'
         });
-    }, /Invalid numeric value/);
+    }, /Simulated production failure/);
+
+    assert.equal(setValuesCalled, 1, "setValues should have been called exactly once");
 
     // verify phase wasn't updated
     const unchanged = readConfigState();

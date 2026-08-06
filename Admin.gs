@@ -1,7 +1,7 @@
 // Injection wrappers
-const _apiR = typeof apiResponse === 'function' ? apiResponse : (typeof global !== 'undefined' && global.apiResponse ? global.apiResponse : (require('./Utils.gs').apiResponse));
-const _readC = typeof readConfigState === 'function' ? readConfigState : (typeof global !== 'undefined' && global.readConfigState ? global.readConfigState : (require('./State.gs').readConfigState));
-const _initW = typeof initializeOrUpdateWorkbook === 'function' ? initializeOrUpdateWorkbook : (typeof global !== 'undefined' && global.initializeOrUpdateWorkbook ? global.initializeOrUpdateWorkbook : (require('./Schema.gs').initializeOrUpdateWorkbook));
+const _apiR = typeof apiResponse_ === 'function' ? apiResponse_ : (typeof global !== 'undefined' && global.apiResponse_ ? global.apiResponse_ : (require('./Utils.gs').apiResponse));
+const _readC = typeof readConfigState_ === 'function' ? readConfigState_ : (typeof global !== 'undefined' && global.readConfigState_ ? global.readConfigState_ : (require('./State.gs').readConfigState));
+const _initW = typeof initializeOrUpdateWorkbook_ === 'function' ? initializeOrUpdateWorkbook_ : (typeof global !== 'undefined' && global.initializeOrUpdateWorkbook_ ? global.initializeOrUpdateWorkbook_ : (require('./Schema.gs').initializeOrUpdateWorkbook));
 
 /**
  * Validates the admin token before proceeding with any action
@@ -9,7 +9,7 @@ const _initW = typeof initializeOrUpdateWorkbook === 'function' ? initializeOrUp
  * @returns {boolean}
  */
 function requireAdmin_(token) {
-    const _resAdmin = typeof resolveAdminSession === 'function' ? resolveAdminSession : (typeof global !== 'undefined' && global.resolveAdminSession ? global.resolveAdminSession : (require('./Auth.gs').resolveAdminSession));
+    const _resAdmin = typeof resolveAdminSession_ === 'function' ? resolveAdminSession_ : (typeof global !== 'undefined' && global.resolveAdminSession_ ? global.resolveAdminSession_ : (require('./Auth.gs').resolveAdminSession));
     return _resAdmin(token);
 }
 
@@ -18,10 +18,9 @@ function requireAdmin_(token) {
  * @param {string} token
  * @returns {object} API response
  */
-function getAdminState(token) {
-    if (!requireAdmin_(token)) {
-        return _apiR(false, null, 'Unauthorized');
-    }
+function getAdminState_(token) {
+    if (!requireAdmin_(token)) { return _apiR(false, null, "Unauthorized"); }
+
 
     try {
         const configMap = _readC();
@@ -36,10 +35,9 @@ function getAdminState(token) {
  * @param {string} token
  * @returns {object} API response containing the report
  */
-function runAdminInit(token) {
-    if (!requireAdmin_(token)) {
-        return _apiR(false, null, 'Unauthorized');
-    }
+function runAdminInit_(token) {
+    if (!requireAdmin_(token)) { return _apiR(false, null, "Unauthorized"); }
+
 
     const result = _initW();
     return result;
@@ -47,8 +45,8 @@ function runAdminInit(token) {
 
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
-        getAdminState,
-        runAdminInit,
+        getAdminState: getAdminState_,
+        runAdminInit: runAdminInit_,
         requireAdmin_
     };
 }
