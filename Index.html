@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>X4 Vacation Lottery</title>
+  <style>
+    :root {
+      --bg-color: #f4f7f6;
+      --card-bg: #ffffff;
+      --text-main: #333333;
+      --text-muted: #666666;
+      --primary: #0056b3;
+      --primary-hover: #004494;
+      --danger: #dc3545;
+      --success: #28a745;
+      --border-color: #dddddd;
+      --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      font-family: var(--font-family);
+      line-height: 1.5;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    header {
+      background-color: var(--card-bg);
+      border-bottom: 1px solid var(--border-color);
+      padding: 1rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    header h1 {
+      font-size: 1.25rem;
+      font-weight: 600;
+    }
+
+    main {
+      flex: 1;
+      padding: 2rem 1rem;
+      max-width: 600px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    .card {
+      background-color: var(--card-bg);
+      border-radius: 8px;
+      padding: 2rem;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+      margin-bottom: 1rem;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    h2 {
+      margin-bottom: 1.5rem;
+      font-size: 1.5rem;
+      font-weight: 500;
+    }
+
+    .form-group {
+      margin-bottom: 1rem;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 0.5rem;
+      font-weight: 500;
+      color: var(--text-main);
+    }
+
+    input[type="text"], input[type="password"] {
+      width: 100%;
+      padding: 0.75rem;
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      font-size: 1rem;
+    }
+
+    button {
+      background-color: var(--primary);
+      color: white;
+      border: none;
+      padding: 0.75rem 1.5rem;
+      font-size: 1rem;
+      border-radius: 4px;
+      cursor: pointer;
+      width: 100%;
+      font-weight: 500;
+      transition: background-color 0.2s;
+    }
+
+    button:hover {
+      background-color: var(--primary-hover);
+    }
+
+    button:disabled {
+      background-color: var(--text-muted);
+      cursor: not-allowed;
+    }
+
+    .btn-secondary {
+      background-color: transparent;
+      color: var(--primary);
+      border: 1px solid var(--primary);
+      margin-top: 0.5rem;
+    }
+    .btn-secondary:hover {
+      background-color: rgba(0, 86, 179, 0.1);
+    }
+
+    .btn-small {
+      width: auto;
+      padding: 0.5rem 1rem;
+      font-size: 0.875rem;
+    }
+
+    .alert {
+      padding: 0.75rem;
+      border-radius: 4px;
+      margin-bottom: 1rem;
+      font-size: 0.875rem;
+    }
+
+    .alert-danger {
+      background-color: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+
+    .alert-success {
+      background-color: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 1rem;
+      align-items: center;
+    }
+
+    .nav-link {
+      color: var(--primary);
+      text-decoration: none;
+      cursor: pointer;
+      font-size: 0.875rem;
+    }
+
+    .nav-link:hover {
+      text-decoration: underline;
+    }
+
+    .state-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 1rem;
+      font-size: 0.875rem;
+    }
+    .state-table th, .state-table td {
+      border: 1px solid var(--border-color);
+      padding: 0.5rem;
+      text-align: left;
+    }
+    .state-table th {
+      background-color: var(--bg-color);
+    }
+
+    #loadingOverlay {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(255,255,255,0.8);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+    }
+
+    .spinner {
+      border: 4px solid rgba(0, 0, 0, 0.1);
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      border-left-color: var(--primary);
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+  </style>
+</head>
+<body>
+  <div id="loadingOverlay" class="hidden">
+    <div class="spinner"></div>
+  </div>
+
+  <header>
+    <h1>X4 Vacation Lottery</h1>
+    <div class="nav-links" id="navLinks">
+      <span id="welcomeText" class="hidden" style="font-size: 0.875rem; font-weight: 500;"></span>
+      <a class="nav-link hidden" id="btnLogout">Logout</a>
+      <a class="nav-link" id="btnGoAdminLogin">Admin Login</a>
+    </div>
+  </header>
+
+  <main>
+    <!-- ALERTS -->
+    <div id="globalAlert" class="alert hidden"></div>
+
+    <!-- PARTICIPANT LOGIN -->
+    <div class="card" id="viewParticipantLogin">
+      <h2>Participant Login</h2>
+      <form id="formParticipantLogin" onsubmit="event.preventDefault(); handleParticipantLogin();">
+        <div class="form-group">
+          <label for="pinInput">Enter your PIN</label>
+          <input type="password" id="pinInput" placeholder="PIN" required autocomplete="off">
+        </div>
+        <button type="submit" id="btnSubmitParticipant">Log In</button>
+      </form>
+    </div>
+
+    <!-- ADMIN LOGIN -->
+    <div class="card hidden" id="viewAdminLogin">
+      <h2>Administrator Login</h2>
+      <form id="formAdminLogin" onsubmit="event.preventDefault(); handleAdminLogin();">
+        <div class="form-group">
+          <label for="adminCodeInput">Access Code</label>
+          <input type="password" id="adminCodeInput" placeholder="Access Code" required autocomplete="off">
+        </div>
+        <button type="submit" id="btnSubmitAdmin">Log In</button>
+        <button type="button" class="btn-secondary" onclick="showView('viewParticipantLogin')">Back to Participant Login</button>
+      </form>
+    </div>
+
+    <!-- PARTICIPANT SHELL -->
+    <div class="card hidden" id="viewParticipantShell">
+      <h2>Welcome, <span id="participantNameDisplay"></span></h2>
+      <p style="margin-bottom: 1rem; color: var(--text-muted);">Current Lottery Status:</p>
+
+      <table class="state-table">
+        <tbody>
+          <tr><th>Active Year</th><td id="pStateYear"></td></tr>
+          <tr><th>Current Phase</th><td id="pStatePhase"></td></tr>
+          <tr><th>Status</th><td id="pStateActive"></td></tr>
+        </tbody>
+      </table>
+
+      <p style="margin-top: 1.5rem; font-size: 0.875rem; color: var(--text-muted);">
+        Additional participant features will be enabled in future modules.
+      </p>
+    </div>
+
+    <!-- ADMIN DASHBOARD -->
+    <div class="card hidden" id="viewAdminDashboard">
+      <h2>Admin Dashboard</h2>
+
+      <div style="margin-bottom: 1.5rem; padding-bottom: 1.5rem; border-bottom: 1px solid var(--border-color);">
+        <h3 style="font-size: 1.1rem; margin-bottom: 0.5rem;">Schema Management</h3>
+        <p style="font-size: 0.875rem; color: var(--text-muted); margin-bottom: 1rem;">
+          Run this to securely inspect and apply required workbook sheets, headers, and validation.
+        </p>
+        <button type="button" onclick="handleAdminInit()" style="width: auto;">Initialize / Update Workbook</button>
+      </div>
+
+      <h3 style="font-size: 1.1rem; margin-bottom: 0.5rem; display: flex; justify-content: space-between; align-items: center;">
+        Durable State
+        <button type="button" class="btn-small btn-secondary" onclick="loadAdminState()">Refresh</button>
+      </h3>
+      <div style="overflow-x: auto;">
+        <table class="state-table" id="adminStateTable">
+          <thead>
+            <tr><th>Key</th><th>Value</th></tr>
+          </thead>
+          <tbody>
+            <!-- Populated via JS -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </main>
+
+  <script>
+    // --- State ---
+    let currentUserType = null; // 'participant' or 'admin'
+    let currentToken = null;
+
+    // --- Lifecycle ---
+    window.addEventListener('DOMContentLoaded', () => {
+       document.getElementById('btnLogout').addEventListener('click', handleLogout);
+       document.getElementById('btnGoAdminLogin').addEventListener('click', () => showView('viewAdminLogin'));
+
+       // Attempt to resume session
+       const savedPToken = localStorage.getItem('x4_p_token');
+       const savedAToken = localStorage.getItem('x4_a_token');
+
+       if (savedPToken) {
+           resumeParticipantSession(savedPToken);
+       } else if (savedAToken) {
+           resumeAdminSession(savedAToken);
+       }
+    });
+
+    // --- UI Helpers ---
+    function showLoading(show) {
+       document.getElementById('loadingOverlay').className = show ? '' : 'hidden';
+    }
+
+    function showAlert(msg, type = 'danger') {
+       const el = document.getElementById('globalAlert');
+       el.textContent = msg;
+       el.className = `alert alert-${type}`;
+       setTimeout(() => { el.className = 'alert hidden'; }, 5000);
+    }
+
+    function showView(viewId) {
+       const views = ['viewParticipantLogin', 'viewAdminLogin', 'viewParticipantShell', 'viewAdminDashboard'];
+       views.forEach(v => {
+           document.getElementById(v).classList.add('hidden');
+       });
+       document.getElementById(viewId).classList.remove('hidden');
+
+       // Reset alerts
+       document.getElementById('globalAlert').className = 'alert hidden';
+
+       // Update Nav
+       const btnLogout = document.getElementById('btnLogout');
+       const btnAdmin = document.getElementById('btnGoAdminLogin');
+       const welcome = document.getElementById('welcomeText');
+
+       if (viewId === 'viewParticipantShell' || viewId === 'viewAdminDashboard') {
+           btnLogout.classList.remove('hidden');
+           btnAdmin.classList.add('hidden');
+           welcome.classList.remove('hidden');
+           welcome.textContent = viewId === 'viewAdminDashboard' ? 'Administrator' : 'Participant';
+       } else {
+           btnLogout.classList.add('hidden');
+           welcome.classList.add('hidden');
+           if (viewId === 'viewAdminLogin') {
+               btnAdmin.classList.add('hidden');
+           } else {
+               btnAdmin.classList.remove('hidden');
+           }
+       }
+    }
+
+    // --- Auth Actions ---
+    function handleParticipantLogin() {
+        const pin = document.getElementById('pinInput').value;
+        if (!pin) return;
+
+        showLoading(true);
+        google.script.run
+            .withSuccessHandler(res => {
+                showLoading(false);
+                if (res.ok) {
+                    currentToken = res.data.token;
+                    currentUserType = 'participant';
+                    localStorage.setItem('x4_p_token', currentToken);
+                    localStorage.removeItem('x4_a_token'); // clear any old admin token
+                    document.getElementById('pinInput').value = '';
+                    renderParticipantShell(res.data.participant);
+                } else {
+                    showAlert(res.message || 'Login failed');
+                }
+            })
+            .withFailureHandler(err => {
+                showLoading(false);
+                showAlert('Network error occurred.');
+            })
+            .apiLoginParticipant(pin);
+    }
+
+    function handleAdminLogin() {
+        const code = document.getElementById('adminCodeInput').value;
+        if (!code) return;
+
+        showLoading(true);
+        google.script.run
+            .withSuccessHandler(res => {
+                showLoading(false);
+                if (res.ok) {
+                    currentToken = res.data.token;
+                    currentUserType = 'admin';
+                    localStorage.setItem('x4_a_token', currentToken);
+                    localStorage.removeItem('x4_p_token');
+                    document.getElementById('adminCodeInput').value = '';
+                    showView('viewAdminDashboard');
+                    loadAdminState();
+                } else {
+                    showAlert(res.message || 'Login failed');
+                }
+            })
+            .withFailureHandler(err => {
+                showLoading(false);
+                showAlert('Network error occurred.');
+            })
+            .apiLoginAdmin(code);
+    }
+
+    function handleLogout() {
+        if (!currentToken) return;
+
+        const tokenToDestroy = currentToken;
+        const type = currentUserType;
+
+        // Optimistic clear
+        currentToken = null;
+        currentUserType = null;
+        localStorage.removeItem('x4_p_token');
+        localStorage.removeItem('x4_a_token');
+        showView('viewParticipantLogin');
+
+        google.script.run.apiLogout(tokenToDestroy, type);
+    }
+
+    function resumeParticipantSession(token) {
+        showLoading(true);
+        google.script.run
+            .withSuccessHandler(res => {
+                showLoading(false);
+                if (res.ok) {
+                    currentToken = token;
+                    currentUserType = 'participant';
+                    renderParticipantShell(res.data);
+                } else {
+                    localStorage.removeItem('x4_p_token');
+                }
+            })
+            .withFailureHandler(err => {
+                showLoading(false);
+                // Fail silently, leave on login
+            })
+            .apiResolveParticipant(token);
+    }
+
+    function resumeAdminSession(token) {
+        // To verify admin token, just try to load state
+        showLoading(true);
+        google.script.run
+            .withSuccessHandler(res => {
+                showLoading(false);
+                if (res.ok) {
+                    currentToken = token;
+                    currentUserType = 'admin';
+                    showView('viewAdminDashboard');
+                    renderAdminState(res.data);
+                } else {
+                    localStorage.removeItem('x4_a_token');
+                }
+            })
+            .withFailureHandler(err => {
+                showLoading(false);
+            })
+            .apiGetAdminState(token);
+    }
+
+    // --- Views ---
+    function renderParticipantShell(proj) {
+        document.getElementById('participantNameDisplay').textContent = proj.name;
+        document.getElementById('pStateYear').textContent = proj.activeYear || 'N/A';
+        document.getElementById('pStatePhase').textContent = proj.currentPhase || 'N/A';
+        document.getElementById('pStateActive').textContent = proj.isActive ? 'Active' : 'Inactive';
+        showView('viewParticipantShell');
+    }
+
+    function loadAdminState() {
+        if (!currentToken || currentUserType !== 'admin') return;
+
+        const tbody = document.querySelector('#adminStateTable tbody');
+        tbody.innerHTML = '<tr><td colspan="2">Loading...</td></tr>';
+
+        google.script.run
+            .withSuccessHandler(res => {
+                if (res.ok) {
+                    renderAdminState(res.data);
+                } else {
+                    showAlert(res.message || 'Failed to load state');
+                    if (res.message === 'Unauthorized') handleLogout();
+                }
+            })
+            .withFailureHandler(err => {
+                tbody.innerHTML = '<tr><td colspan="2" style="color: red;">Failed to load</td></tr>';
+            })
+            .apiGetAdminState(currentToken);
+    }
+
+    function renderAdminState(stateObj) {
+        const tbody = document.querySelector('#adminStateTable tbody');
+        tbody.innerHTML = '';
+
+        for (const key in stateObj) {
+             const tr = document.createElement('tr');
+             const td1 = document.createElement('td');
+             td1.textContent = key;
+             const td2 = document.createElement('td');
+             td2.textContent = stateObj[key];
+             tr.appendChild(td1);
+             tr.appendChild(td2);
+             tbody.appendChild(tr);
+        }
+    }
+
+    function handleAdminInit() {
+        if (!currentToken || currentUserType !== 'admin') return;
+        if (!confirm('Run the schema initializer? This will non-destructively inspect and update the workbook.')) return;
+
+        showLoading(true);
+        google.script.run
+            .withSuccessHandler(res => {
+                showLoading(false);
+                if (res.ok) {
+                    showAlert(res.message + (res.data.changed ? ' (Changes applied)' : ' (No changes needed)'), 'success');
+                    loadAdminState(); // refresh state view
+                } else {
+                    // Could be conflicts
+                    let msg = res.message;
+                    if (res.data && res.data.report && res.data.report.conflicts.length > 0) {
+                        msg += '\n\nConflicts:\n' + res.data.report.conflicts.join('\n');
+                    }
+                    showAlert(msg, 'danger');
+                }
+            })
+            .withFailureHandler(err => {
+                showLoading(false);
+                showAlert('Network error occurred.');
+            })
+            .apiRunAdminInit(currentToken);
+    }
+
+  </script>
+</body>
+</html>
