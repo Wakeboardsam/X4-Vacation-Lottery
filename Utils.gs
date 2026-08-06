@@ -5,7 +5,7 @@
  * @param {string} message
  * @returns {object}
  */
-function apiResponse(ok, data = null, message = '') {
+function apiResponse_(ok, data = null, message = '') {
   return { ok, data, message };
 }
 
@@ -14,7 +14,7 @@ function apiResponse(ok, data = null, message = '') {
  * @param {any[][]} data 2D array of sheet data
  * @returns {object} map of string header name to integer column index
  */
-function getHeaderMap(data) {
+function getHeaderMap_(data) {
   if (!data || data.length === 0) return {};
   const headers = data[0];
   const map = {};
@@ -34,7 +34,7 @@ function getHeaderMap(data) {
  * @param {string|number} targetValue
  * @returns {number} 0-indexed row number, or -1 if not found
  */
-function findRowIndex(data, colIndex, targetValue) {
+function findRowIndex_(data, colIndex, targetValue) {
   if (!data || data.length === 0 || colIndex < 0 || targetValue === null || targetValue === undefined) {
     return -1;
   }
@@ -56,7 +56,7 @@ function findRowIndex(data, colIndex, targetValue) {
  * @param {any[]} arr
  * @returns {any[]} duplicates
  */
-function getDuplicates(arr) {
+function getDuplicates_(arr) {
   const seen = new Set();
   const dupes = new Set();
   for (const item of arr) {
@@ -69,9 +69,9 @@ function getDuplicates(arr) {
 // Node.js module export for testing
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
-    apiResponse,
-    getHeaderMap,
-    findRowIndex,
-    getDuplicates
+    apiResponse: apiResponse_,
+    getHeaderMap: getHeaderMap_,
+    findRowIndex: findRowIndex_,
+    getDuplicates: getDuplicates_
   };
 }

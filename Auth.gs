@@ -5,14 +5,14 @@ const SESSION_PREFIX_ADMIN = 'SESS_A_';
 const SESSION_EXPIRY_MS = 6 * 60 * 60 * 1000; // 6 hours
 
 // Dependency injection workaround for Apps Script sharing environment vs Node tests
-const _apiResponse = typeof apiResponse === 'function' ? apiResponse : (typeof global !== 'undefined' && global.apiResponse ? global.apiResponse : (require('./Utils.gs').apiResponse));
-const _getHMap2 = typeof getHeaderMap === 'function' ? getHeaderMap : (typeof global !== 'undefined' && global.getHeaderMap ? global.getHeaderMap : (require('./Utils.gs').getHeaderMap));
+const _apiResponse = typeof apiResponse_ === 'function' ? apiResponse_ : (typeof global !== 'undefined' && global.apiResponse_ ? global.apiResponse_ : (require('./Utils.gs').apiResponse));
+const _getHMap2 = typeof getHeaderMap_ === 'function' ? getHeaderMap_ : (typeof global !== 'undefined' && global.getHeaderMap_ ? global.getHeaderMap_ : (require('./Utils.gs').getHeaderMap));
 
 /**
  * Editor-only function to set the administrator access code.
  * @param {string} rawCode
  */
-function setAdminAccessCode(rawCode) {
+function setAdminAccessCode_(rawCode) {
     if (!rawCode || typeof rawCode !== 'string' || rawCode.trim() === '') {
         throw new Error('Access code cannot be blank.');
     }
@@ -27,7 +27,7 @@ function setAdminAccessCode(rawCode) {
     });
 }
 
-function _cleanExpiredSessions(props, prefix) {
+function cleanExpiredSessions_(props, prefix) {
     const all = props.getProperties();
     const now = Date.now();
     for (const k in all) {
@@ -49,7 +49,7 @@ function _cleanExpiredSessions(props, prefix) {
  * @param {string} pin
  * @returns {object} API response with session token and projection
  */
-function loginParticipant(pin) {
+function loginParticipant_(pin) {
     if (!pin || String(pin).trim() === '') {
          return _apiResponse(false, null, 'Invalid PIN'); // generic error
     }
@@ -96,7 +96,7 @@ function loginParticipant(pin) {
     // Read high level state
     let configMap;
     try {
-        const _readConfig = typeof readConfigState === 'function' ? readConfigState : (typeof global !== 'undefined' && global.readConfigState ? global.readConfigState : (require('./State.gs').readConfigState));
+        const _readConfig = typeof readConfigState_ === 'function' ? readConfigState_ : (typeof global !== 'undefined' && global.readConfigState_ ? global.readConfigState_ : (require('./State.gs').readConfigState));
         configMap = _readConfig();
     } catch(e) {
         return _apiResponse(false, null, 'System error reading state');
@@ -111,7 +111,7 @@ function loginParticipant(pin) {
     let rawToken;
     try {
         const props = PropertiesService.getScriptProperties();
-        _cleanExpiredSessions(props, SESSION_PREFIX_USER);
+        cleanExpiredSessions_(props, SESSION_PREFIX_USER);
 
         rawToken = Utilities.getUuid();
         const digest = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, rawToken, Utilities.Charset.UTF_8);
@@ -145,14 +145,14 @@ function loginParticipant(pin) {
  * @param {string} token
  * @returns {object} projection or null if invalid
  */
-function resolveParticipantSession(token) {
+function resolveParticipantSession_(token) {
     if (!token) return null;
 
-    const digest = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, token, Utilities.Charset.UTF_8);
-    const tokenHashHex = digest.map(b => (b < 0 ? b + 256 : b).toString(16).padStart(2, '0')).join('');
+    const digestForResolve = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, token, Utilities.Charset.UTF_8);
+    const hexForResolve = digestForResolve.map(b => (b < 0 ? b + 256 : b).toString(16).padStart(2, '0')).join('');
 
     const props = PropertiesService.getScriptProperties();
-    const sessStr = props.getProperty(SESSION_PREFIX_USER + tokenHashHex);
+    const sessStr = props.getProperty(SESSION_PREFIX_USER + hexForResolve);
 
     if (!sessStr) return null;
 
@@ -164,7 +164,7 @@ function resolveParticipantSession(token) {
     }
 
     if (Date.now() > sess.expires) {
-         props.deleteProperty(SESSION_PREFIX_USER + tokenHashHex);
+         props.deleteProperty(SESSION_PREFIX_USER + hexForResolve);
          return null;
     }
 
@@ -177,18 +177,24 @@ function resolveParticipantSession(token) {
     const map = _getHMap2(data);
 
     let matchRow = null;
+    let duplicateCount = 0;
     for (let r = 1; r < data.length; r++) {
          if (String(data[r][map['PIN']] || '').trim() === sess.pin) {
               matchRow = data[r];
-              break;
+              duplicateCount++;
          }
+    }
+
+    if (duplicateCount > 1) {
+        props.deleteProperty(SESSION_PREFIX_USER + hexForResolve);
+        return null;
     }
 
     if (!matchRow) return null; // Participant deleted or PIN changed
 
     let configMap;
     try {
-        const _readConfig = typeof readConfigState === 'function' ? readConfigState : (typeof global !== 'undefined' && global.readConfigState ? global.readConfigState : (require('./State.gs').readConfigState));
+        const _readConfig = typeof readConfigState_ === 'function' ? readConfigState_ : (typeof global !== 'undefined' && global.readConfigState_ ? global.readConfigState_ : (require('./State.gs').readConfigState));
         configMap = _readConfig();
     } catch(e) {
         return null;
@@ -210,7 +216,7 @@ function resolveParticipantSession(token) {
  * @param {string} rawCode
  * @returns {object} API response with admin session token
  */
-function loginAdmin(rawCode) {
+function loginAdmin_(rawCode) {
     if (!rawCode) return _apiResponse(false, null, 'Invalid code');
 
     const props = PropertiesService.getScriptProperties();
@@ -235,7 +241,7 @@ function loginAdmin(rawCode) {
 
     let rawToken;
     try {
-        _cleanExpiredSessions(props, SESSION_PREFIX_ADMIN);
+        cleanExpiredSessions_(props, SESSION_PREFIX_ADMIN);
         rawToken = Utilities.getUuid();
         const tDigest = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, rawToken, Utilities.Charset.UTF_8);
         const tHashHex = tDigest.map(b => (b < 0 ? b + 256 : b).toString(16).padStart(2, '0')).join('');
@@ -249,14 +255,16 @@ function loginAdmin(rawCode) {
 }
 
 
-function resolveAdminSession(token) {
+function resolveAdminSession_(token) {
     if (!token) return false;
 
     const digest = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, token, Utilities.Charset.UTF_8);
     const tokenHashHex = digest.map(b => (b < 0 ? b + 256 : b).toString(16).padStart(2, '0')).join('');
 
     const props = PropertiesService.getScriptProperties();
-    const sessStr = props.getProperty(SESSION_PREFIX_ADMIN + tokenHashHex);
+    const digest3 = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, token, Utilities.Charset.UTF_8);
+    const hex3 = digest3.map(b => (b < 0 ? b + 256 : b).toString(16).padStart(2, '0')).join('');
+    const sessStr = props.getProperty(SESSION_PREFIX_ADMIN + hex3);
 
     if (!sessStr) return false;
 
@@ -268,37 +276,63 @@ function resolveAdminSession(token) {
     }
 
     if (Date.now() > sess.expires) {
-         props.deleteProperty(SESSION_PREFIX_ADMIN + tokenHashHex);
+         props.deleteProperty(SESSION_PREFIX_ADMIN + hex3);
          return false;
     }
     return true;
 }
 
-function logout(token, type) {
+
+
+function logout_(token) {
     if (!token) return _apiResponse(true, null, 'Logged out');
-    const digest = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, token, Utilities.Charset.UTF_8);
-    const tokenHashHex = digest.map(b => (b < 0 ? b + 256 : b).toString(16).padStart(2, '0')).join('');
+
+    // Scoped block to avoid variable shadowing
+    var _dgst = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, token, Utilities.Charset.UTF_8);
+    var _h = _dgst.map(b => (b < 0 ? b + 256 : b).toString(16).padStart(2, '0')).join('');
 
     const lock = LockService.getScriptLock();
     if (lock.tryLock(3000)) {
         try {
-            const prefix = type === 'admin' ? SESSION_PREFIX_ADMIN : SESSION_PREFIX_USER;
-            PropertiesService.getScriptProperties().deleteProperty(prefix + tokenHashHex);
+            const props = PropertiesService.getScriptProperties();
+            let success = false;
+
+            if (props.getProperty(SESSION_PREFIX_USER + _h)) {
+                props.deleteProperty(SESSION_PREFIX_USER + _h);
+                success = true;
+            } else if (props.getProperty(SESSION_PREFIX_ADMIN + _h)) {
+                props.deleteProperty(SESSION_PREFIX_ADMIN + _h);
+                success = true;
+            }
+            if (!success) {
+                 return _apiResponse(false, null, 'Session not found');
+            }
+        } catch(e) {
+             return _apiResponse(false, null, 'Error during logout');
         } finally {
             lock.releaseLock();
         }
+    } else {
+         return _apiResponse(false, null, 'System busy');
     }
     return _apiResponse(true, null, 'Logged out');
 }
 
+
+
+function requireAdmin_(token) {
+    return resolveAdminSession_(token);
+}
+
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
-        setAdminAccessCode,
-        loginParticipant,
-        resolveParticipantSession,
-        loginAdmin,
-        resolveAdminSession,
-        logout,
+        setAdminAccessCode: setAdminAccessCode_,
+        loginParticipant: loginParticipant_,
+        resolveParticipantSession: resolveParticipantSession_,
+        loginAdmin: loginAdmin_,
+        resolveAdminSession: resolveAdminSession_,
+        logout: logout_,
+        requireAdmin: requireAdmin_,
         SESSION_PREFIX_USER,
         SESSION_PREFIX_ADMIN
     };

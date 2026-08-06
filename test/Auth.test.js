@@ -87,7 +87,7 @@ test('Auth: Duplicate PIN fails safe', () => {
 test('Auth: Resolve participant rereads fresh projection', () => {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const tmSheet = ss.getSheetByName('Turn Management');
-    const row = ['Bob', '555', '', '', '', true]; // active = true
+    const row = ['Bob', '555', '', true, '', '']; // active = true
     tmSheet.appendRow(row);
 
     const res = loginParticipant('555');
@@ -97,7 +97,7 @@ test('Auth: Resolve participant rereads fresh projection', () => {
     assert.equal(proj.isActive, true);
 
     // Mutate state in DB
-    tmSheet.getRange(tmSheet.getLastRow(), 6).setValue(false); // Make inactive
+    tmSheet.getRange(tmSheet.getLastRow(), 4).setValue(false); // Make inactive
 
     proj = resolveParticipantSession(token);
     assert.equal(proj.isActive, false); // Picked up change
@@ -122,4 +122,21 @@ test('Auth: Logout invalidates session', () => {
 
     logout(token, 'admin');
     assert.equal(resolveAdminSession(token), false);
+});
+
+test('Auth: Session resume fails closed on newly introduced duplicate PIN', () => {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const tmSheet = ss.getSheetByName('Turn Management');
+    const row = ['DupeTest', '9999', '', true, '', ''];
+    tmSheet.appendRow(row);
+
+    const res = loginParticipant('9999');
+    assert.equal(res.ok, true);
+
+    // Add duplicate
+    const dupeRow = ['Dupe2', '9999', '', true, '', ''];
+    tmSheet.appendRow(dupeRow);
+
+    const proj = resolveParticipantSession(res.data.token);
+    assert.equal(proj, null, 'Session should fail closed when duplicate introduced');
 });

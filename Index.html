@@ -256,7 +256,9 @@
       <table class="state-table">
         <tbody>
           <tr><th>Active Year</th><td id="pStateYear"></td></tr>
+          <tr><th>Setup State</th><td id="pStateSetup"></td></tr>
           <tr><th>Current Phase</th><td id="pStatePhase"></td></tr>
+          <tr><th>Ready State</th><td id="pStateReady"></td></tr>
           <tr><th>Status</th><td id="pStateActive"></td></tr>
         </tbody>
       </table>
@@ -278,11 +280,12 @@
         <button type="button" onclick="handleAdminInit()" style="width: auto;">Initialize / Update Workbook</button>
       </div>
 
+
       <h3 style="font-size: 1.1rem; margin-bottom: 0.5rem; display: flex; justify-content: space-between; align-items: center;">
         Durable State
         <button type="button" class="btn-small btn-secondary" onclick="loadAdminState()">Refresh</button>
       </h3>
-      <div style="overflow-x: auto;">
+      <div style="overflow-x: auto; margin-bottom: 1.5rem;">
         <table class="state-table" id="adminStateTable">
           <thead>
             <tr><th>Key</th><th>Value</th></tr>
@@ -292,7 +295,17 @@
           </tbody>
         </table>
       </div>
+
+      <h3 style="font-size: 1.1rem; margin-bottom: 0.5rem; display: flex; justify-content: space-between; align-items: center;">
+        Schema Inspector
+        <button type="button" class="btn-small btn-secondary" onclick="handleInspectSchema()">Refresh</button>
+      </h3>
+      <div style="background-color: var(--card-bg); border: 1px solid var(--border-color); padding: 1rem; border-radius: 4px; overflow-x: auto; font-family: monospace; white-space: pre-wrap;" id="adminSchemaReport">
+          Run Inspector or Initialize to view report.
+      </div>
+
     </div>
+</div>
 
   </main>
 
@@ -480,6 +493,28 @@
         showView('viewParticipantShell');
     }
 
+
+    function handleInspectSchema() {
+        if (!currentToken || currentUserType !== 'admin') return;
+
+        showLoading(true);
+        google.script.run
+            .withSuccessHandler(res => {
+                showLoading(false);
+                const el = document.getElementById('adminSchemaReport');
+                if (res.ok) {
+                    el.textContent = JSON.stringify(res.data, null, 2);
+                } else {
+                    el.textContent = 'Error: ' + res.message;
+                }
+            })
+            .withFailureHandler(err => {
+                showLoading(false);
+                document.getElementById('adminSchemaReport').textContent = 'Network error occurred.';
+            })
+            .apiInspectSchema(currentToken);
+    }
+
     function loadAdminState() {
         if (!currentToken || currentUserType !== 'admin') return;
 
@@ -501,6 +536,7 @@
             .apiGetAdminState(currentToken);
     }
 
+
     function renderAdminState(stateObj) {
         const tbody = document.querySelector('#adminStateTable tbody');
         tbody.innerHTML = '';
@@ -509,8 +545,19 @@
              const tr = document.createElement('tr');
              const td1 = document.createElement('td');
              td1.textContent = key;
+
              const td2 = document.createElement('td');
-             td2.textContent = stateObj[key];
+             let valDisplay = stateObj[key];
+
+             if (key === 'Current Phase') {
+                 valDisplay = getFriendlyLabel(phaseLabels, stateObj[key]) + ' (' + stateObj[key] + ')';
+             } else if (key === 'Setup State') {
+                 valDisplay = getFriendlyLabel(setupStateLabels, stateObj[key]) + ' (' + stateObj[key] + ')';
+             } else if (key === 'Phase Ready State') {
+                 valDisplay = getFriendlyLabel(readyStateLabels, stateObj[key]) + ' (' + stateObj[key] + ')';
+             }
+
+             td2.textContent = valDisplay;
              tr.appendChild(td1);
              tr.appendChild(td2);
              tbody.appendChild(tr);
@@ -527,12 +574,16 @@
                 showLoading(false);
                 if (res.ok) {
                     showAlert(res.message + (res.data.changed ? ' (Changes applied)' : ' (No changes needed)'), 'success');
+                    document.getElementById('adminSchemaReport').textContent = JSON.stringify(res.data.report, null, 2);
                     loadAdminState(); // refresh state view
                 } else {
                     // Could be conflicts
                     let msg = res.message;
-                    if (res.data && res.data.report && res.data.report.conflicts.length > 0) {
-                        msg += '\n\nConflicts:\n' + res.data.report.conflicts.join('\n');
+                    if (res.data && res.data.report) {
+                        document.getElementById('adminSchemaReport').textContent = JSON.stringify(res.data.report, null, 2);
+                        if (res.data.report.conflicts.length > 0) {
+                            msg += '\n\nConflicts:\n' + res.data.report.conflicts.join('\n');
+                        }
                     }
                     showAlert(msg, 'danger');
                 }
