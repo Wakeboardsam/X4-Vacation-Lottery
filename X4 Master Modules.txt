@@ -1,0 +1,522 @@
+X4 VACATION LOTTERY
+CLEAN-SLATE MASTER MODULE PLAN
+
+
+PURPOSE AND AUTHORITY
+
+This file defines the implementation order for a clean-slate build of the X4 Vacation Lottery Google Apps Script application.
+
+Use “x4 Vacation Lotto Prompts .txt” as the authoritative product specification. This module plan converts that specification into sequential, testable implementation units. If wording in this plan ever conflicts with the product specification, the product specification controls.
+
+Begin with an empty application implementation and a fresh workbook. Do not assume that schema, login, queueing, vacation selection, notifications, or user interfaces already exist.
+
+
+HOW TO USE THIS PLAN
+
+1. Implement the modules in numerical order.
+2. Complete and verify each module before beginning the next.
+3. Treat every completion gate as mandatory.
+4. Add focused automated tests with the module that introduces each behavior; do not postpone initial testing until Module 15.
+5. Keep the application usable at the end of every module. Do not count placeholder screens, disconnected schema, or untested scaffolding as completion.
+6. Preserve all behavior delivered by earlier modules unless a later module explicitly extends it.
+7. Keep implementation choices minimal and readable for Google Apps Script. Use small focused server files and thin entry points instead of one large monolithic file.
+8. Do not invent unresolved product behavior. Use the authoritative product specification whenever additional detail is needed.
+
+
+SYSTEM-WIDE BUILD RULES
+
+- Build one integrated, modern, mobile-friendly web application for annual setup, vacation selection, weekend coverage, holiday coverage, transfers, participant views, and administrator controls.
+- Use one participant roster and one annual randomized Lottery Position across all randomized phases.
+- Do not start a new major phase automatically. A completed phase may mark the next phase ready, but the administrator must start it explicitly. The only automatic phase change is completed Vacation Round 1 → Vacation Round 2.
+- Never hard-code the participant count.
+- Treat the spreadsheet as the authoritative source of truth. Reread relevant sheet values before final validation and writes.
+- Validate every participant action on the server. Never trust hidden browser fields, cached availability, or stale client state.
+- Protect setup actions, phase transitions, assignment writes, queue advancement, and transfer claims with LockService and atomic validation.
+- The first valid completed submission wins. A losing concurrent participant remains ACTIVE, keeps the turn, receives a clear conflict message, and is shown refreshed choices.
+- Use header-based column lookup and batch spreadsheet reads and writes where practical.
+- Keep participant-facing errors plain, specific, and actionable. Do not expose sheet row numbers, internal status codes, PINs, administrator-only settings, or credentials.
+- Use ordinary Twilio SMS only. Do not implement WhatsApp.
+- Keep Twilio calls and credentials server-side. Never commit real credentials or include them in client responses, logs, errors, status messages, or transfer history.
+- Do not create a general business audit log. A dedicated Transfer History table and technical state needed for reliable notifications are allowed.
+- Every unexpected failure must leave assignments, participant counts, queue position, and phase state internally consistent.
+
+
+MODULE 1 — CORE APPLICATION, SCHEMA, AND DURABLE STATE
+
+Create the clean Google Apps Script application foundation, participant PIN login, server/client boundary, minimal participant shell, and administrator shell.
+
+Create an idempotent workbook initializer/schema updater for these sheets or clearly structured areas:
+
+- Config
+- Turn Management
+- Week Availability
+- Admin Options
+- Rules & Tips
+- Weekend Coverage
+- Holiday Coverage
+- Soft Holiday Warnings
+- Transfer Offers
+- Transfer History
+
+Turn Management must include the participant’s Name, PIN, Phone Number, Seniority Position, Lottery Position, and these exact controls:
+
+- Active for Year
+- Vacation Phase Enabled
+- Vacation Week Target Override
+- Weekend Phase Enabled
+- Weekend Assignment Maximum
+- Holiday Volunteer
+- Mandatory Holiday Eligible
+- Transfer Giver
+- Transfer Receiver
+- Had Spring Break Last Year
+- Had Christmas Week Last Year
+- Worked Any Official Holiday Last Year
+- Rules Acknowledged Year
+
+Config must durably store at least:
+
+- Active Year
+- Setup State
+- Current Phase
+- Phase Ready State
+- Current Vacation Round
+- Current Serpentine Direction
+- Current queue/window state needed to rebuild the ACTIVE window after reload
+- Active-window generation or equivalent durable notification generation key
+
+Use a clear durable phase model covering setup, vacation seniority, vacation randomized rounds, weekend, holiday volunteer, mandatory holiday, transfer offer collection, transfer receiver selection, and completed year. Phase readiness must be separate from Current Phase so finishing one phase can make the next phase ready without starting it automatically.
+
+The initializer must add missing sheets, columns, configuration values, checkboxes, and validation without clearing populated cells or altering participant data, assignments, formatting, or colors. It must be safe to run repeatedly and must report incompatible schema instead of guessing destructively.
+
+Completion gate: A fresh workbook initializes successfully, the initializer can run again without changing populated test data, a participant can authenticate by PIN, durable state survives reload, and schema/state tests pass.
+
+
+MODULE 2 — GENERIC ACTIVE-WINDOW AND SERPENTINE ENGINE
+
+Build one reusable, phase-aware queue engine. It must accept an ordered eligible roster, phase, configured window size, direction, completion/skip state, and phase-specific turn rules. It must return and persist the correct ACTIVE window and next queue state.
+
+Queue behavior:
+
+- Everyone displayed in the current window is labeled ACTIVE and may submit immediately.
+- Window size is configurable and supports positive values such as 1, 2, 3, or more.
+- Normal movement is rolling: after one ACTIVE participant completes a valid turn, the next eligible participant enters.
+- Vacation Round 1 is one forward pass using Seniority Position.
+- Vacation Round 2 and later use Lottery Position and serpentine movement.
+- Weekend, holiday, and transfer receiver phases use Lottery Position and serpentine movement.
+- Every new major randomized phase starts at Lottery Position 1.
+- Dynamic roster sizes, disabled participants, completed participants, caps, forfeited turns, permanent Pass/None states, and other eligibility skips must not corrupt the order.
+
+Implement the strict endpoint barrier. When the final directional window reaches the end of the roster, every participant in that directional window must finish before the reverse-direction window opens. Do not mix people from the old and new directions. The endpoint participant receives the normal consecutive opportunity only in the newly opened reverse window and can never appear twice in the ACTIVE window at the same time.
+
+Completion gate: Deterministic tests prove variable window sizes, rolling advancement, dynamic participant counts, eligibility skips, forward and reverse movement, strict endpoint completion, no duplicate ACTIVE participant, and restart at Lottery Position 1.
+
+
+MODULE 3 — VACATION PHASE END TO END
+
+Implement the complete vacation selection engine and its participant/admin screens.
+
+Round behavior:
+
+- The administrator explicitly begins Vacation Round 1 after setup is confirmed.
+- The entire first round uses Seniority Position.
+- After every eligible participant completes Round 1, transition automatically to Round 2.
+- Round 2 and later use annual Lottery Position and the generic serpentine engine.
+- Current Vacation Round remains durable because prior-year break restrictions depend on it.
+
+Vacation rules:
+
+- Default vacation target is 9 weeks per participant.
+- A blank Vacation Week Target Override inherits the global target.
+- Default capacity is 4 participants per week, with administrator-defined per-week overrides.
+- Vacation Phase Enabled and Active for Year control eligibility.
+- A Prime selection must stand alone: exactly one Prime week on that turn.
+- A participant may select one or two Non-Prime weeks on a turn.
+- Selecting two Non-Prime weeks forfeits the participant’s next scheduled appearance.
+- Selecting one Non-Prime week does not forfeit the next appearance.
+- A Prime selection does not create an immediate extra turn.
+- A participant cannot select the same week twice.
+- Once a participant reaches the personal target, skip that participant for the rest of the vacation phase.
+
+Give every vacation week a separate Special Week designation: None, Spring Break, or Christmas. Prime/Non-Prime and Special Week are separate fields. A participant marked Had Spring Break Last Year cannot select the designated Spring Break week in Rounds 1 through 3 and becomes eligible in Round 4. Apply the same exact-break-only rule to Christmas. One prior-year break must not block the other break.
+
+Auto-fill may suggest Prime classifications, but the administrator-confirmed classification is authoritative. No holiday week, including Thanksgiving, is automatically Prime unless the administrator confirms it as Prime during setup review.
+
+Use Week Availability with capacity-driven Person1…PersonN assignment columns added only as required, so capacity is not hard-coded to four while the sheet remains easy for a nontechnical administrator to read.
+
+Allow the administrator to end vacation and begin Weekend before everyone reaches the target. Freeze the unequal totals, stop all participant vacation submissions, and allow later direct sheet corrections.
+
+Make multi-week submissions atomic. A failed write must not leave one week assigned, counts changed, or the queue advanced only partway.
+
+Completion gate: A complete simulated vacation lottery passes from Round 1 through later serpentine rounds, and focused tests cover targets, capacities, overrides, Prime/Non-Prime rules, forfeited turns, special-week restrictions, concurrency, atomic failures, and early vacation completion.
+
+
+MODULE 4 — RULES, ACKNOWLEDGMENT, AND PARTICIPANT PREFERENCES
+
+Implement all three Rules & Tips experiences:
+
+- Permanent Rules & Tips button in the participant header.
+- Short context-sensitive reminders on relevant selection screens.
+- Required once-per-year acknowledgment before a participant’s first selection.
+
+Rules, reminders, and the lighthearted spouse reminder must be spreadsheet-editable without redeployment. Exclude inappropriate historical holiday descriptions.
+
+The acknowledgment must require both of these decisions before it can complete:
+
+1. “I am willing to volunteer for one or more official holiday call positions this year.” Answered with required Yes/No controls.
+2. Transfer preference: Offer assignments, Receive assignments, Both offer and receive, or Do not participate.
+
+Populate Holiday Volunteer, Transfer Giver, and Transfer Receiver on the participant record. Store the acknowledgment as Rules Acknowledged Year, not a timestamp. The administrator may edit these preferences before the applicable phase.
+
+Completion gate: An unacknowledged participant cannot submit a selection, acknowledgment cannot complete with either preference missing, values map correctly to Turn Management, and an acknowledged participant can use the vacation workflow.
+
+
+MODULE 5 — ADMIN OPTIONS AND PARTICIPANT CONTROLS
+
+Build a simple, mobile-readable, nontechnical administrator control surface backed by Admin Options and Turn Management.
+
+Global controls must include:
+
+- Active lottery year
+- Vacation ACTIVE-window size, default 3
+- Weekend ACTIVE-window size, default 2
+- Holiday ACTIVE-window size, default 2
+- Transfer receiver ACTIVE-window size, default 2
+- Default vacation-week target, default 9
+- Default vacation-week capacity, default 4
+- Per-week capacity overrides
+- SMS enabled/disabled
+- Participant reminder delay, default 360 minutes
+- Administrator nonresponse alert delay, default 720 minutes
+- Official/soft-holiday proximity range, default 3 calendar days
+- Administrator notification phone number
+- Rules & Tips text
+- Contextual reminder text
+- Spouse-reminder text
+- Twilio Account SID
+- Twilio authentication token
+- Twilio sending number and any other required SMS settings
+
+Expose every exact participant control from Module 1 using recognizable checkboxes, dropdowns, and blank-inherits-default fields. A blank Weekend Assignment Maximum means uncapped participation until weekend coverage is complete. Phase participation is independent: a person may be active for the year but disabled for vacation or weekend, and a person excluded from mandatory holidays may still volunteer.
+
+Changing options or participant controls must never rerandomize Lottery Position or silently rewrite assignments. Do not require the administrator to interpret raw internal state values.
+
+Completion gate: Administrator changes safely affect applicable vacation behavior, blank override behavior is correct, participant phase controls are independent, settings remain readable on mobile, and no setting change rerandomizes the annual order.
+
+
+MODULE 6 — ANNUAL AUTO-FILL / RANDOMIZE AND SETUP CONFIRMATION
+
+Implement this durable setup sequence:
+
+EMPTY SETUP
+→ AUTO-FILLED / RANDOMIZED
+→ ADMIN REVIEW
+→ SETUP CONFIRMED
+→ SENIORITY ROUND READY
+
+Support one active lottery year at a time. Historical tab copies or archives remain a manual administrator responsibility.
+
+AUTO-FILL / RANDOMIZE must include a plain-language description and require the administrator to type the target year as confirmation.
+
+For target year Y, generate vacation workweeks by starting with the Monday on or before January 1, advancing every seven days, and including the Monday on or before December 31. Each record represents the Monday-through-Friday workweek. This intentionally permits the first week to begin in the prior calendar year and the last week to extend into the following year.
+
+Also generate:
+
+- Reviewed weekend positions, including the permitted New Year boundary overlap
+- Six employer-observed official holidays: New Year’s Day, Memorial Day, Independence Day, Labor Day, Thanksgiving, and Christmas
+- Default soft holidays: Presidents’ Day, Valentine’s Day, Easter, Mother’s Day, and Father’s Day
+- Empty vacation, weekend, and holiday assignment positions
+- Suggested Prime/Non-Prime classifications
+- Suggested Christmas Special Week where practical
+- One randomized annual Lottery Position for every participant marked Active for Year
+
+Preserve administrator-entered Seniority Position. Spring Break must be explicitly designated during Admin Review. The administrator may correct dates, boundaries, classifications, special-week designations, orders, participant overrides, official observed dates, and soft holidays before confirmation. Soft holidays may be enabled/disabled individually and additional warning dates may be added.
+
+Block Auto-Fill/Randomize when operational data makes regeneration unsafe, including any vacation, weekend, or holiday assignment; participant selection counts or completion state; transfer offers; transfer history; or active-year operational history. Return exact blockers and counts. Never silently clear, archive, snapshot, or overwrite operational data. Do not rerun Auto-Fill merely to correct a date; corrections are made manually.
+
+Before Setup Confirmed, show a full review summary containing year, participant count, complete seniority and lottery orders, vacation-week count and capacities, weekend count, official holidays and dates, enabled soft holidays and dates, Prime classifications, Special Week designations, and participant overrides. Require explicit confirmation of roster, both orders, vacation dates, classifications, weekend dates, holiday dates, warnings, phone numbers, and PINs.
+
+After confirmation, normal web controls lock the orders, generated dates, holiday definitions, and classifications. Direct spreadsheet corrections remain supported through reconciliation.
+
+Completion gate: Setup succeeds safely on a fresh workbook; year-boundary generation is exact; the annual order is shared by all later phases; required review confirmations work; and populated workbooks are blocked with specific, tested reasons.
+
+
+MODULE 7 — REFRESH / RECONCILE FROM SHEET
+
+Implement one authoritative reconciliation system for direct spreadsheet corrections.
+
+Refresh/Reconcile From Sheet must reread and recalculate:
+
+- Vacation, weekend, and holiday assignments
+- Vacation capacities and participant totals/targets
+- Weekend totals and individual maximums
+- Remaining holiday positions
+- Transfer offers and ownership consistency
+- Current phase readiness and completion
+- Queue direction, pending turns, and ACTIVE windows
+
+It must recognize when a manually entered assignment satisfies an outstanding participant turn. Validate and clearly report unknown participant names, over-capacity weeks, duplicate ownership, prohibited same-weekend assignments, prohibited same-holiday call combinations, and transfer inconsistencies. Never delete or overwrite an administrator edit merely because cached or derived state disagrees.
+
+Participant submissions must always reread authoritative sheet data, including while reconciliation has reported an issue. They must validate safely against that fresh state and must never restore stale values over a direct correction.
+
+Completion gate: Directly edit representative vacation, weekend, holiday, and queue data; reconcile; and verify that the web application reflects valid corrections, reports invalid data precisely, recognizes satisfied turns, and never restores stale data.
+
+
+MODULE 8 — SMS NOTIFICATION ENGINE AND TWILIO SETTINGS
+
+Implement a reusable notification engine keyed by lottery year, phase, ACTIVE-window generation, participant, and notification type.
+
+Required behavior:
+
+- Immediate SMS when a participant newly enters an ACTIVE window.
+- One participant reminder at the configured delay, default 360 minutes from original entry.
+- One administrator alert at the configured delay, default 720 minutes from original entry.
+- The administrator timer is measured from the original ACTIVE entry, not from the reminder.
+- No additional automatic reminders after the administrator alert.
+- Manual administrator resend.
+- Deduplication across reloads, triggers, reconciliation, and repeated queue calculations.
+- Holiday confirmation SMS after successful nearby-holiday acceptance in Module 10.
+
+Read Twilio configuration from Admin Options and keep every API operation server-side. Mask the token in the web administrator interface. Never return or log the token. Clearly label/protect credential cells and warn that every Google Sheet editor can still view or copy credentials even when cells are hidden or protected.
+
+Completion gate: Vacation ACTIVE-window notifications work through the reusable engine; timing, manual resend, and deduplication tests pass; credentials never appear in participant responses or logs; and tests use placeholders/mocks rather than real credentials.
+
+
+MODULE 9 — WEEKEND COVERAGE PHASE
+
+Implement the first additional operational phase end to end.
+
+The administrator explicitly starts Weekend after vacation is complete or intentionally ended. Weekend restarts at Lottery Position 1, uses the annual randomized serpentine order and configured window size, and continues until every required weekend position is filled.
+
+Rules:
+
+- Respect Active for Year and Weekend Phase Enabled.
+- A participant selects exactly one weekend position per turn.
+- Each weekend offers Saturday First Call and Sunday First Call as separate positions.
+- Saturday First Call implies Sunday Second Call.
+- Sunday First Call implies Saturday Second Call.
+- One participant cannot hold both First Call positions for the same weekend.
+- Prior-year weekend totals do not affect the new year.
+- Do not attempt to equalize assignments across years.
+- Respect Weekend Assignment Maximum.
+- A blank maximum is uncapped.
+- If every enabled participant reaches a maximum while positions remain, halt advancement and notify the administrator.
+
+The selection view must show exact date, day of week, First Call position, and the other day’s current assignee. Warning and nearby-holiday layers are added in Module 10.
+
+Completion gate: A simulated full weekend year can be selected from first opening to last without altering vacation data, all assignment implications are preserved, individual caps work, and cap exhaustion produces an administrator alert.
+
+
+MODULE 10 — WEEKEND WARNINGS AND NEARBY-HOLIDAY RESERVATION
+
+Add advisory weekend warnings:
+
+- Consecutive weekend: the participant holds an immediately preceding or following weekend assignment.
+- Vacation adjacency: the participant selects the Saturday or Sunday immediately before or after one of that participant’s own Monday-through-Friday vacation weeks.
+- Official-holiday proximity within the configured range, default ±3 calendar days, using the employer-observed date.
+- Soft-holiday proximity within the same configured range.
+- Spreadsheet-editable spouse reminder.
+
+Warnings must identify the event, exact date, and whether it is an official coverage holiday or a soft warning. They must remain friendly and never block a valid selection.
+
+For a weekend near an official holiday, add optional holiday reservation to the weekend confirmation flow:
+
+- Show the official holiday name and employer-observed date.
+- Show Call 2 before Call 1 because Call 2 is generally more desirable.
+- Keep both Call 1 and Call 2 selectable whenever both are open.
+- Include Decline.
+- Permit at most one holiday call position in the submission.
+- Prevent the participant from holding both calls of the same holiday.
+- A successful reservation counts as a current-year holiday commitment but does not remove later volunteer eligibility for other holidays.
+- Send the special holiday confirmation SMS after success.
+
+Implement these exact atomic concurrency outcomes:
+
+- Weekend conflict: write nothing, keep the participant ACTIVE, and refresh choices.
+- Holiday-only conflict: keep the valid weekend assignment, reject only the holiday, and report both outcomes clearly.
+- Both available: write both.
+- Holiday declined: write only the weekend.
+
+Completion gate: Warnings are correct and nonblocking, Call 2 is displayed first without locking Call 1, duplicate-call restrictions hold, and automated tests prove all four combined-submission outcomes.
+
+
+MODULE 11 — HOLIDAY VOLUNTEER PHASE
+
+If official holiday positions remain after Weekend, allow the administrator to explicitly start Holiday Volunteer. If every position is already filled, mark Holiday Coverage Complete and skip empty holiday phases.
+
+Volunteer behavior:
+
+- Restart at Lottery Position 1.
+- Use the annual randomized serpentine order and configured Holiday window size.
+- Include only participants with Holiday Volunteer = Yes.
+- Allow exactly one holiday call position per turn.
+- Allow additional different holidays on later cycles.
+- Prevent one participant from holding both calls of the same holiday.
+- Keep participants who accepted a holiday during Weekend eligible for additional different holidays.
+- Offer Pass; Pass permanently removes that participant from the remainder of the volunteer phase.
+
+End the phase when all positions are filled or every remaining volunteer has passed. If openings remain after all volunteers pass, mark Mandatory Holiday Ready and notify the administrator, but do not start Mandatory Holiday automatically.
+
+Completion gate: Automated end-to-end scenarios demonstrate full voluntary coverage, all-volunteers-pass, permanent Pass, repeat turns for different holidays, adjacent-weekend participants remaining eligible, and correct skipping when coverage was already complete.
+
+
+MODULE 12 — MANDATORY HOLIDAY PHASE
+
+Implement the administrator-started Mandatory Holiday phase for remaining official holiday positions.
+
+General behavior:
+
+- Restart at Lottery Position 1 and use the annual randomized serpentine order.
+- Include only participants marked Mandatory Holiday Eligible.
+- Treat a new participant with no prior-year history as having worked no official holiday last year.
+- Let an ACTIVE participant choose one remaining call position; do not randomly choose for them.
+- Do not offer Pass.
+- Do not automatically assign or skip a nonresponsive participant.
+- Apply normal reminder and administrator-alert behavior.
+- Always prevent one participant from holding both calls of the same holiday.
+
+Use these exact tiers:
+
+Tier 1 — Participants with no prior-year official holiday and no current-year holiday. During the first Tier 1 pass, each receives no more than one mandatory assignment before anyone in that tier repeats.
+
+Tier 2 — Participants who worked an official holiday last year but hold no current-year holiday. During the first Tier 2 pass, each receives no more than one mandatory assignment before anyone in that tier repeats.
+
+Tier 3 — If openings remain, use the complete Mandatory Holiday Eligible population and continue cycling until coverage is full. Tier 3 may give additional holidays to people who already hold a current-year holiday. Never stop merely because every eligible participant already holds one.
+
+Completion gate: Tests prove Tier 1 order, Tier 2 expansion, Tier 3 repeated assignments, participation override, no Pass, no automatic nonresponse assignment, concurrency behavior, and completion only when every official holiday position is filled.
+
+
+MODULE 13 — TRANSFER / GIVEAWAY SYSTEM END TO END
+
+Implement both transfer stages together so users never encounter a visible half-built process. This is a giveaway pool, not an equal exchange system.
+
+STAGE A — OFFER COLLECTION
+
+- The administrator begins Transfer after vacation, weekend, and official holiday selection are complete.
+- Only Transfer Giver participants may offer assignments they currently own.
+- A giver may select one, several, or all owned weekend and holiday assignments in one confirmation screen.
+- Every selected assignment becomes a separate pool item.
+- Confirmation must clearly state that submitted offers are irrevocable.
+- A submitted offer cannot be withdrawn or edited.
+- Ownership remains with the giver until an item is accepted.
+- If an item is never accepted, it remains assigned to the giver.
+- The administrator locks the pool before receiver selection; after locking, no offers may be added or removed.
+
+STAGE B — RECEIVER SELECTION
+
+- Include only Transfer Receiver participants.
+- Restart at Lottery Position 1 and use the normal randomized serpentine engine and configured transfer window size.
+- A receiver accepts exactly one individual item per turn.
+- A receiver may return on later cycles and accept additional items.
+- None permanently removes that receiver from the round.
+- First valid completed claim wins.
+- A losing concurrent claimant remains ACTIVE and keeps the turn.
+- The giver does not reconfirm.
+- Acceptance and ownership reassignment occur atomically.
+- Preserve duplicate weekend and duplicate holiday restrictions.
+- Preserve consecutive-weekend, vacation-adjacency, official-holiday, and soft-holiday warnings as advisory.
+- A weekend item transfers the complete First Call/Second Call responsibility.
+- A holiday item transfers the exact holiday and exact call position.
+
+End receiver selection when every offered item is accepted or every remaining receiver chooses None. Leave all unaccepted items with their original owners. Mark the round Ready to Complete and require explicit administrator completion.
+
+Record accepted transfers in dedicated Transfer History with timestamp, lottery year, assignment type, assignment date, weekend First Call day or holiday call position, original assignee, and new assignee. Do not add a general audit log.
+
+Completion gate: A complete offer → confirm → lock → receive/None → administrator complete workflow passes end to end, including multiple independent items, irrevocability, unclaimed ownership, concurrent claims, duplicate-position restrictions, and Transfer History accuracy.
+
+
+MODULE 14 — UNIFIED PARTICIPANT/ADMIN DASHBOARDS AND COMPLETED YEAR
+
+Consolidate all implemented mechanics into one minimal, consistent, mobile-friendly experience.
+
+Participant dashboard must show:
+
+- Current lottery year
+- Current phase
+- Current vacation round and direction when applicable
+- All currently ACTIVE participants
+- Whether the logged-in participant is ACTIVE
+- Selected vacation weeks
+- Weekend assignments
+- Holiday assignments
+- Transfer offers and received assignments
+- Choices available in the current phase
+- Relevant nonblocking warnings
+- Rules & Tips access
+
+Administrator dashboard must show:
+
+- Setup State, Current Phase, and Phase Ready State
+- Only actions valid for the current state
+- ACTIVE-window members
+- Phase completion statistics
+- Unresponsive participants
+- Remaining vacation capacity
+- Remaining weekend positions
+- Remaining holiday call positions
+- Transfer offer and receiver progress
+- Exact reconciliation/validation problems
+- Manual notification resend controls
+- Refresh/Reconcile From Sheet
+- Clearly labeled setup, phase-start, pool-lock, and completion actions
+
+Add an explicit Completed Year state. Consequential actions require clear confirmation language. The annual workflow must be operable without editing Apps Script source.
+
+Completion gate: A participant can navigate every phase from login through completion, and a nontechnical administrator can run the full sequence using labeled controls without seeing credentials, raw state codes, or implementation details.
+
+
+MODULE 15 — FULL REGRESSION, POPULATED-DATA REHEARSAL, DOCUMENTATION, AND RELEASE GATE
+
+Run the complete acceptance matrix from “x4 Vacation Lotto Prompts .txt.” Earlier module tests remain in place; this module closes coverage gaps and proves the integrated system.
+
+Required integrated coverage includes:
+
+- Every setup and phase transition, including explicit administrator starts and the automatic Round 1 → Round 2 transition
+- Every randomized phase restarting at Lottery Position 1
+- Dynamic rosters and every participant participation control/override
+- Rolling ACTIVE windows, strict reversals, eligibility skips, and no duplicate endpoint participant
+- Vacation targets, capacities, Prime/Non-Prime behavior, forfeited turns, special-week restrictions, and early completion
+- Weekend completion, caps, cap exhaustion, duplicate-position prevention, and implied First/Second Call responsibility
+- Every warning type and all four vacation-adjacency dates
+- Nearby-holiday reservation, all four partial/concurrent outcomes, and confirmation SMS
+- Holiday phase skipping, volunteer enrollment, permanent Pass, and repeat voluntary selections
+- Mandatory Tiers 1, 2, and 3, including repeated Tier 3 assignments
+- Irrevocable offers, pool locking, transfer claims, permanent None, unclaimed items, assignment restrictions, and Transfer History
+- Direct-edit reconciliation for every assignment type and queue state
+- First-valid-submission-wins locking for vacation, weekend, holiday, adjacent holiday, setup, phase transitions, and transfers
+- Immediate SMS, reminder/admin timing, manual resend, deduplication, and no recurring automatic reminders
+- Twilio token non-exposure in participant responses, logs, errors, status, and history
+- Exact Auto-Fill blocker reporting and typed-year confirmation
+- Idempotent schema updates that preserve populated data when run repeatedly
+- Recovery from validation and write failures without partial assignments or queue advancement
+
+Use a real runnable test harness with committed fixtures. Do not count fabricated results, skipped tests, or “not run” statements as passing evidence. Record every test executed and its exact result.
+
+Rehearse initialization and schema updates against a populated test workbook created from the clean schema. Verify that repeat initialization adds only missing structure and never clears assignments or participant data.
+
+Complete administrator documentation for annual setup, review/confirmation, every participant override, Rules acknowledgment, every phase, serpentine windows, vacation rules, weekend responsibility, holiday rules, transfers, notifications, reconciliation, direct corrections, Twilio configuration/warning, common recovery steps, and Apps Script deployment.
+
+Completion gate: All automated tests pass; end-to-end manual acceptance is documented; populated-data preservation is proven; participant-facing code cannot access Twilio credentials; concurrency protection is verified; and the administrator can operate the complete annual workflow without source-code changes.
+
+
+SUGGESTED MINIMAL SOURCE ORGANIZATION
+
+Keep entry points thin and group behavior by responsibility. A practical structure may include:
+
+- Code.gs — web entry points and thin public wrappers
+- Schema.gs — initialization, headers, validation, and safe schema updates
+- Auth.gs — participant PIN/session validation and administrator authorization helpers
+- State.gs — setup state, phase state, durable queue state, and transition rules
+- QueueEngine.gs — generic ACTIVE-window and serpentine logic
+- Vacation.gs — vacation validation, assignment, totals, and round behavior
+- Rules.gs — rules content, acknowledgment, and preference mapping
+- Admin.gs — administrator option/control services
+- Setup.gs — Auto-Fill/Randomize and confirmation
+- Reconcile.gs — spreadsheet-authoritative recalculation and conflict reporting
+- Notifications.gs — Twilio SMS, timing, deduplication, and resend
+- Weekend.gs — weekend selection and warnings
+- Holidays.gs — nearby reservation, volunteer, and mandatory behavior
+- Transfers.gs — offer pool, claims, ownership changes, and history
+- HTML/CSS/JavaScript files — minimal participant and administrator views
+
+These names are guidance, not a requirement. Add a file only when it keeps a responsibility easier to understand and test. Avoid duplicate queue, validation, reconciliation, or notification implementations for different phases.
