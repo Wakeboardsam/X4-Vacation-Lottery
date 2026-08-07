@@ -220,46 +220,7 @@ if (typeof module !== 'undefined' && module.exports) {
 /**
  * Normalizes roster reading from Turn Management sheet.
  */
-function readAuthoritativeRoster_() {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const sheet = ss.getSheetByName('Turn Management');
-    if (!sheet) throw new Error('Turn Management sheet missing');
-
-    const data = sheet.getDataRange().getValues();
-    const _getHMap = typeof getHeaderMap_ === 'function' ? getHeaderMap_ : (typeof global !== 'undefined' && global.getHeaderMap_ ? global.getHeaderMap_ : (require('./Utils.gs').getHeaderMap));
-    const map = _getHMap(data);
-
-    const roster = [];
-    for (let r = 1; r < data.length; r++) {
-        const row = data[r];
-        const participantId = row[map['Participant ID']] ? String(row[map['Participant ID']]).trim() : null;
-        if (!participantId) continue;
-
-        const active = row[map['Active for Year']] === true || String(row[map['Active for Year']]).toLowerCase() === 'true';
-
-        // This is generic queue. The actual disposition calculation is done by phase caller in Module 3.
-        // For the generic wrapper without Module 3 logic, we just map basic Active -> ELIGIBLE.
-        // The prompt says: "The phase caller should reread authoritative sheet data inside the lock and supply an ordered, normalized roster... Modules 3 and later will calculate the dispositions."
-        // So the generic wrapper must ACCEPT a disposition-calculation callback or the caller must construct the roster inside the lock.
-        // Let's pass a generic mapping function OR provide a helper that the caller injects.
-        // Wait, the plan states: "Implement processQueueMutation_(action, authParticipantId, submittedTurnId) ... Reread authoritative Config and authoritative Turn Management roster inside the lock."
-
-        // Since Module 3 calculates dispositions, we will just return raw participant rows here.
-        // But the queue engine needs dispositions. We will assign 'ELIGIBLE' if Active for Year is true, else 'EXCLUDED'.
-        roster.push({
-            participantId: participantId,
-            disposition: active ? 'ELIGIBLE' : 'EXCLUDED',
-            _rawRow: row
-        });
-    }
-
-    return roster;
-}
-
-/**
- * Reconciles the queue (e.g. window resize).
- */
-function processReconcile_(config) {
+function processReconcile_(config, rosterCallback) {
     const lock = LockService.getScriptLock();
     if (!lock.tryLock(10000)) {
         throw new Error('Could not obtain lock for queue reconciliation');
@@ -271,7 +232,7 @@ function processReconcile_(config) {
 
         const currentState = _readConfig();
 
-        const roster = readAuthoritativeRoster_();
+        const roster = rosterCallback();
 
         // Parse config fields
         const parsedState = {
@@ -312,7 +273,7 @@ function processReconcile_(config) {
 /**
  * Processes a participant completion.
  */
-function processQueueMutation_(authParticipantId, submittedTurnId, config) {
+function processQueueMutation_(authParticipantId, submittedTurnId, config, rosterCallback) {
     const lock = LockService.getScriptLock();
     if (!lock.tryLock(10000)) {
         throw new Error('Could not obtain lock for queue mutation');
@@ -334,19 +295,8 @@ function processQueueMutation_(authParticipantId, submittedTurnId, config) {
              return { ok: false, message: 'Wrong participant for turn' };
         }
 
-        const roster = readAuthoritativeRoster_();
+        const roster = rosterCallback();
 
-        // Sort roster if needed?
-        // The queue uses either Lottery Position or Seniority Position.
-        // We will mock ordering here, although Module 3 handles it properly.
-        if (config.orderSource === 'LOTTERY') {
-             const map = (typeof getHeaderMap_ === 'function' ? getHeaderMap_ : (typeof global !== 'undefined' && global.getHeaderMap_ ? global.getHeaderMap_ : (require('./Utils.gs').getHeaderMap)))(SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Turn Management').getDataRange().getValues());
-             roster.sort((a, b) => {
-                 const posA = Number(a._rawRow[map['Lottery Position']] || 9999);
-                 const posB = Number(b._rawRow[map['Lottery Position']] || 9999);
-                 return posA - posB;
-             });
-        }
 
         const parsedState = {
             ...currentState,

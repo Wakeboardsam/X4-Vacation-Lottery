@@ -271,7 +271,7 @@ test('processQueueMutation: Rejects wrong participant', () => {
     });
 
     // Submit with wrong participant ID
-    const res = processQueueMutation('uuid2', 'turn1', {});
+    const res = processQueueMutation('uuid2', 'turn1', {}, () => []);
     assert.equal(res.ok, false);
     assert.match(res.message, /Wrong participant/);
 });
@@ -284,7 +284,7 @@ test('processQueueMutation: Rejects stale turn', () => {
         "Current Active Window": JSON.stringify([{ turnId: 'turn1', participantId: 'uuid1' }])
     });
 
-    const res = processQueueMutation('uuid1', 'staleTurn', {});
+    const res = processQueueMutation('uuid1', 'staleTurn', {}, () => []);
     assert.equal(res.ok, false);
     assert.match(res.message, /no longer active/);
 });
