@@ -1,0 +1,3280 @@
+﻿Prompt responses #1
+Answers to the questions, any additional clarifying questions before writing the Jules prompt?
+I reviewed both attachments. The archived workbook establishes the vacation rules, historical weekend assignments, and two-person holiday coverage. The weekend backend treats each Saturday and Sunday as a separate one-person slot and already uses the same Active/Standby/Backup-style queue model.
+My initial architectural lean is one integrated web app, with the same login and admin area but three clearly separated phases:
+Vacation Weeks → Weekend Coverage → Holiday Coverage
+That keeps one participant list, one randomized order, one audit trail, and one place for people to check everything. The backend can still keep separate tabs/tables for each type of coverage. A separate weekend app would mainly make sense if the participants, administrators, or timing were different.
+1. Overall lottery flow
+
+2. Do the exact same employees participate in vacation weeks, weekends, and holidays?
+
+Yes
+   2. Should all three phases use the same randomized order generated for that year, or should weekends receive a separately randomized order?
+Same random order
+   3. Is this the intended order?
+Vacation weeks completely finish.
+Weekend selections completely finish.
+Remaining holidays are selected or assigned.
+Yes
+   4. Should the admin manually click something such as “Begin Weekend Phase” and “Begin Holiday Phase,” or should the system automatically advance when the previous phase is complete?
+Yes
+   5. Should weekends and holidays use the existing three-person Active/Standby/Backup window, or should those phases allow only one person at a time?
+It should be a 2 person window for weekend and holiday. How should holiday volunteer be implemented? In the past, volunteers were put in a pool, they were allowed to take as many holiday slots as they want,the remaining were then voluntold to pick a holiday (from the remaining pool of people who didn't volunteer this year and didn't work a holiday in the previous year.)
+   6. Can someone who has not finished their vacation selections proceed into weekend selection, or must every participant finish one phase before anybody enters the next?
+Everyone must finish each first.
+   7. What officially makes each phase “complete”? For example, all required weekend slots filled, even if some people have not used an expected quota.
+A complete vacation phase is when each person has chosen 9 weeks, (or when the admin initiates the next phase with a checkbox).
+A complete weekend phase is when all the weekends have been assigned a person, (or when the admin initiates the next phase with a checkbox).
+A complete holiday phase is when all holiday dates have been assigned a person.
+   2. Rules and tips
+The archived Rules & Tips page says the first vacation pick is by seniority, later selections use a randomized top-to-bottom then bottom-to-top order, non-prime weeks permit a double pick with a forfeited turn, and prior Christmas/Spring Break selectors must wait until after round three.
+   8. Does “1st Vacation pick will be by Seniority” mean:
+The entire first round is in seniority order, then random order begins in round two?
+Yes.
+Or only the single first person is determined by seniority?
+No, The entire first round is in seniority order, then random order begins in round two.
+   9. When the random order begins, should it be serpentine forever:
+1 → 21
+21 → 1
+1 → 21
+and so forth?
+Yes, keep in mind, the amount of people may differ from year to year, but principles should remain the same year to year, and the people who start picking a round will be included in the entire vacation weekend and holiday system throughout that given year.
+   10. The old rule says prime weeks are summer and Spring/Christmas breaks, decided at the meeting. The existing project plan also discusses Thanksgiving and Memorial Day-to-Labor Day classifications. Which definition is now authoritative?
+Prime weeks classification will be determined and labeled by the admin before the lottery begins. Thanksgiving week will be voted on and classified by admin before lottery begins.
+   11. Should the admin manually mark individual weeks as Prime after the meeting, even when auto-fill initially suggests classifications?
+The script is ok to suggest classifications of prime, but yes, the admin should confirm this clarification prior to initiating round 1.
+   12. There is a possible wording conflict around prime picks:
+The archived rules say select one prime week and wait for the order to circle back.
+The earlier system plan says a prime selection may produce another turn immediately.
+Which behavior does the currently working app use, and is that the behavior you want preserved?
+This is a "Tip" for those new to the lotto. If a person is near the bottom or top of the list, it would benefit them to optimize their picks by picking a prime, then their next turn they could pick 2 weeks and not feel like they missed a turn (being "skipped" next time) as they are near the u-turn of the snake logic and will get another double pick when their turn is finally available again. There's no core logic changes here, just a tip for a new employee.
+   13. May a person ever select one prime week and one non-prime week in the same submission, or must a prime selection always stand alone?
+Prime selection always stands alone.
+   14. For the Christmas/Spring Break restriction, does “after 3rd round” mean the person becomes eligible starting in round four?
+Yes, starting round 4, if there's availability to pick the prime classified Christmas or spring break is valid, even if they had one of those off last year.
+   15. Should that restriction apply only to the exact break they covered last year, or to both Christmas and Spring Break if they had either one?
+That restriction applies only to the exact break they covered last year.
+   16. How should the app know who had those weeks last year: retained historical records, an admin checkbox beside each employee, or imported assignments?
+It should be a simple check box beside each employee, this can also apply to the holiday working history as an additional holiday checkbox list.
+   17. For presenting rules, would you like all three of these?
+A permanent Rules & Tips button in the header.
+A short, context-sensitive reminder on each selection screen.
+A once-per-year acknowledgment before a participant’s first pick.
+Yes, app three of these would be great.
+   18. Should the acknowledgment be recorded with the participant’s name and timestamp?
+No.
+   19. Should rules and tips be editable from a backend tab so the admin can update wording without redeploying the web app?
+Yes.
+   20. The archived workbook also contains lengthy humorous holiday notes, some of which are more adult or workplace-risky than the rules page. Should all of those old holiday descriptions be excluded, with only your new lighthearted spouse reminder retained?
+All of those old holiday descriptions should be excluded, with only the new lighthearted spouse reminder retained.
+   3. Weekend coverage
+The weekend backend lists every Saturday and Sunday independently with one available spot per date. It also extends through January 2–3 of the following year in the 2026 example.
+   21. Is a weekend selection always one specific day, either Saturday or Sunday, rather than the entire weekend?
+For this programming logic, one person for a Saturday and a different person on a Sunday is good enough... You are correct, the 2 days of the weekend will be covered by both people, but they will each be the "First in call" on the day they choose for the weekend, and it's implied they will work the other day of the weekend as "second call".
+   22. May the same employee select both Saturday and Sunday of the same weekend?
+No.
+   23. Should the system discourage or prohibit one employee from taking consecutive weekends?
+No, but a warning this is the case would be wise, as well as a warning that a weekend pick is adjacent to a vacation week that was previously picked.
+   24. Should weekend assignments cover only dates physically inside January 1–December 31, or should the lottery include the complete weekend that overlaps New Year, as the weekend backend currently does?
+Overlap is fine, prior to the start, the dates will be confirmed by admin.
+   25. With roughly 104 weekend-day slots and about 21 people, should the system automatically calculate a balanced requirement—usually four or five days per person—or is each employee’s required number set manually?
+Each required number is random each year, as the lottery order is random, there's allot of trading after the meeting for weekend coverage (incentive is bonus pay for covering it), so being "fair" from year to year isn't overly concerning. The lotto should just continue until all the slots are filled.
+   26. If the number does not divide evenly, who receives the extra weekend assignments:
+People earlier in the random order?
+People who had fewer last year?
+Randomly selected employees?
+Admin discretion?
+The lotto should just continue until all the slots are filled through the random lottery order.
+   27. On each weekend turn, does a participant select exactly one weekend day, or can they select multiple dates at once?
+Exactly one.
+   28. Is weekend coverage fully mandatory, or may participants initially volunteer for dates and have remaining slots assigned later?
+Mandatory until all slots are filled & volunteer to trade it away to someone else later.
+   29. If weekend slots remain unselected, should forced assignment use the same yearly random order?
+The lotto should just continue until all the weekend slots are filled through the random lottery order.
+   30. Do prior-year weekend totals matter for fairness, or does every year reset completely?
+Every year resets completely.
+   31. Should the app support trades after the lottery, or merely show the original assignment and leave trades to the admin?
+Trades mechanics should be laid out as follows:
+I would like to add an optional Weekend & Holiday Transfer/Giveaway Round after all vacation weeks, weekend assignments, and holiday assignments have been completed. Before the first selection round begins, the Rules and Tips acknowledgment should ask each participant whether they are willing to: - Offer assigned weekend or holiday dates to others - Receive weekend or holiday dates offered by others - Do both - Not participate in transfers Participation would be optional. Because weekend and holiday assignments involve additional work and have established additional compensation, transfers would not need to be equal exchanges. A participant could offer one, several, or all of their assigned weekend or holiday dates without receiving another date in return. After the regular selection process is complete: 1. Participants who chose to be givers may place specific assigned weekend or holiday dates into an available transfer pool. 2. Only participants who previously chose to be receivers will participate in the transfer-selection round. 3. Receivers will be called in the same randomized lottery order used by the main system. 4. On each turn, the participant may select one available date or choose “None.” 5. After a date is selected, it is removed from the available pool and reassigned to the receiver. 6. The selection then advances to the next eligible receiver. 7. The receiver order may continue cycling until all offered dates have been accepted or all remaining receivers have chosen “None.” 8. Once someone chooses “None,” they are removed from the remainder of the transfer round and will not receive another turn. The transfer should become official only after the receiving participant confirms acceptance. The system should then update the weekend or holiday assignment records and retain a history showing the original assignee, the new assignee, the date, and the time of the transfer. This is not intended to be an equal trade system. It is an orderly way for people who do not want certain extra-work assignments to voluntarily transfer them to coworkers who are willing to take them.
+   32. If trades are supported, must both employees confirm the swap before the backend changes?
+No, of they have agreed to give it away, that's it, if some one chooses to take it, it's gone.
+   4. Official holiday coverage
+The historical workbook appears to use six official holidays—New Year’s Day, Memorial Day, July 4th, Labor Day, Thanksgiving, and Christmas—with two people assigned to each.
+   33. Is that still the exact official coverage-holiday list?
+Yes.
+   34. Are assignments based on the actual calendar date or the employer-observed holiday? For example, when July 4 falls on Sunday, is coverage for Sunday the 4th, Monday the 5th, or both?
+employer-observed holiday.
+   35. Are the two holiday positions identical, or do they represent separate shifts or roles?
+Two people cover the holiday. There's a 1st and 2nd call, 2nd call is called in after 1st call is already busy that day, it's more desired to be 2nd call on a holiday, 2nd call should be filled first for each holiday. The specific call number should be the traded day. When picking holidays, call 1 and call 2 should be offered as options to pick from. But if someone picks the holiday, they should not be able to accidentally pick the other call position for that same holiday.
+   36. Can one person voluntarily take more than one official holiday in the same year?
+Yes.
+   37. Before forced assignment begins, should every participant receive one opportunity to:
+Select an available holiday
+Or pass without penalty?
+Yes, selection and pass without penalty should be offered until all holidays are filled. If mandatory round is started because not enough volunteers exist, mandatory (vacation lotery order) round should be started until filled . Previous year holiday worked persons should be excluded from this pool.
+   38. Should someone who covered a holiday last year still be allowed to volunteer this year?
+Yes.
+   39. For forced assignments, is the eligible group strictly everyone who covered zero official holidays in the immediately preceding year?
+Yes.
+   40. What happens if that group is too small to fill all remaining holiday slots?
+Selection participant pool should be expanded to past year participants.
+   41. Should the fallback preference be:
+People with the fewest holidays over several prior years.
+People who have gone the longest without one.
+Everyone remaining in the current random order.
+Everyone remaining in the current random order.
+   42. Are new employees with no prior-year history treated as “did not cover last year” and therefore eligible for forced assignment?
+Yes.
+   43. When you say “notify those next up on the random list,” should the app use the original yearly order and simply skip anyone who is not eligible?
+Yes.
+   44. Does an eligible employee get to choose among the remaining holidays, or does the system randomly assign a specific holiday to them?
+Allow them to choose from remaining holidays.
+   45. How long may someone wait before the opportunity moves to the next eligible person?
+Let's have it be a rolling window as the other systems are. (This reminds me, let's have an options dashboard for variables such as twilo sms notifications variables, vacation weeks, weekend and holidays rolling window sizes)
+   46. If they fail to respond, should the system automatically assign one, or merely notify the admin?
+Notify the admin.
+   5. Holiday-adjacent weekend choices
+
+   6. What exactly counts as “near a holiday”?
+
+The Saturday or Sunday immediately adjoining it.
+Any date within three days.
+The weekend before and the weekend after.
+A manually defined relationship on the Holiday tab.
+Any date within three days, meaning Thursday holiday should warn the following weekend Saturday and Sunday participants.
+      48. For Memorial Day Monday, would both the preceding Saturday and Sunday trigger the reminder?
+Any date within three days, meaning Thursday holiday should warn the following weekend Saturday and Sunday participants.
+      49. For Thanksgiving Thursday, should the reminder appear for the weekend before Thanksgiving, the weekend after, or both?
+After. Any date within three days, meaning Thursday holiday should warn the following weekend Saturday and Sunday participants.
+      50. When someone picks a holiday-adjacent weekend, may they immediately reserve an official holiday slot during that weekend-selection turn?
+Yes.
+      51. If both the Saturday and Sunday selectors want the same holiday, who gets priority: whoever selected first?
+Yes, When someone picks a holiday-adjacent weekend, they will immediately be prompted to reserve an official holiday slot during that weekend-selection turn including a new sms notification.
+      52. Should accepting the nearby holiday count as that person’s holiday obligation for the year?
+Yes.
+      53. Should the reminder be purely optional and dismissible, using wording similar to:
+“There’s a holiday near this weekend. Would taking the holiday too save someone else’s plans—and is your spouse going to approve this choice? 😉”
+Yes.
+      54. Should the app display exactly which holiday is nearby and its date before they confirm?
+Yes.
+      6. Soft holidays
+
+      7. Which soft holidays should auto-fill by default? You mentioned:
+
+Valentine’s Day
+Easter
+Mother’s Day
+Father’s Day
+Presidents’ Day
+Those options should suffice allow additions to this list if admin desires future changes.
+         56. Are there others, such as Super Bowl weekend, Halloween, school graduation weekends, or local events?
+No, allow additions to this list if admin desires future changes.
+         57. Soft holidays require no additional coverage slot and only produce a warning—is that correct?
+Yes.
+         58. Should an admin be able to turn each soft holiday warning on or off independently for the selected year?
+Yes.
+         59. Should the admin be able to add custom one-time events such as a local festival or known department event?
+Just allow additions to this list if admin desires future changes.
+         7. Annual setup and safety checks
+
+         8. Should the workbook hold only one active lottery year, while retaining prior years in historical tabs, or should multiple years coexist in the same tables?
+
+Once active lottery. Retaining historical data will remain on admin shoulders independently, maybe via "duplicate tab" manually of what she wants saved.
+            61. When the admin enters “2027” and checks Auto-Fill, should it generate all of the following at once?
+Vacation-week start dates.
+Suggested prime/non-prime classifications.
+Every Saturday and Sunday.
+Official holiday dates.
+Soft holiday dates.
+Empty assignment slots.
+Yes.
+            62. Should auto-fill merely prepare dates, or also generate/randomize the participant order?
+Auto-fill button should be labeled Auto-Fill/Randomize and have a description of what it's going to do when it's clicked.
+            63. Must the admin explicitly confirm the official and soft holiday list before the lottery can begin?
+Yes.
+            64. What fields should block auto-fill as “not a fresh setup”:
+Any vacation assignee.
+Yes.
+Any weekend assignee.
+Yes.
+Any holiday assignee.
+Yes.
+Any participant selection count or completed status.
+Yes
+Existing audit/history records for that year.
+Yes.
+            65. Should the warning only block the operation, or offer a separate deliberate “Archive and Reset Year” workflow?
+Warning, halt.
+            66. Before clearing anything, should the system automatically save a read-only snapshot of the completed year?
+No.
+            67. Should there be a typed confirmation such as entering the year to prevent accidentally resetting the live lottery?
+Yes.
+            68. Does the admin need the ability to rerun auto-fill after correcting one holiday date, provided no assignments have begun?
+No.
+            69. Should manually edited dates be preserved, or overwritten whenever auto-fill is rerun?
+Overwritten.
+            70. Should every admin override, forced assignment, reset, and trade be recorded in an audit log with timestamp and reason?
+No.
+These decisions will define the mechanics cleanly before Jules touches the backend or interface.
+
+
+
+
+Prompt responses #2
+
+
+The current system already uses a three-person window, automatic advancement after valid picks, SMS notifications, and a manually initialized transition from seniority round one into the randomized rounds. It also specifically warns not to store Twilio secrets in spreadsheet cells.  The archived rules confirm the seniority-first and serpentine random-order structure, while the old weekend backend demonstrates an adjustable participant list and Active/Standby/Backup queue.
+
+
+1. Phase transitions and lottery order
+
+
+
+
+2. Your answer to the manual-versus-automatic phase question was “Yes,” but the choice needs to be explicit. Should the system:
+
+
+
+
+
+
+Recommended: Automatically mark a phase Ready to Advance, but require the admin to press Begin Weekend Phase, Begin Holiday Volunteer Phase, Begin Mandatory Holiday Phase, and Begin Transfer Round. It would never start a new phase automatically.
+
+
+Yes. Admin marks beginning of seniority round Ready, automatically advances to random lottery order round 2 after seniority round. When it's time to Advance to weekend phase, but require the admin to press Begin Weekend Phase, Begin Holiday Volunteer Phase, Begin Mandatory Holiday Phase, and Begin Transfer Round. It would never start a new phase automatically.
+
+
+2. When each new phase begins, should it restart with Lottery Position 1, or continue from wherever the previous phase ended?
+
+
+
+
+
+
+Recommended: Each phase independently starts at Lottery Position 1 using the same randomized order.
+
+
+Yes, Each phase independently starts at Lottery Position 1 using the same randomized order.
+
+
+3. Should weekend, holiday-volunteer, mandatory-holiday, and transfer selections all use the same serpentine movement as vacation selections?
+
+
+
+
+
+
+Example: 1 → last person → last person → 1, including the endpoint participant receiving consecutive turns at the reversal.
+
+
+Yes.
+
+
+4. If the admin advances the vacation phase before everyone reaches nine weeks, what happens to those missing weeks?
+
+
+
+
+
+
+The incomplete totals are accepted and, the admin will assign or correct them manually later. There are circumstances that sometimes not everyone will have equal amount of weeks.
+
+
+5. Similarly, if the admin advances past an incomplete weekend phase, are the remaining weekend positions intentionally left vacant for the admin to resolve manually?
+
+
+
+
+
+
+Yes, but this won't happen as they must all be filled.
+
+
+6. Once a participant reaches nine vacation weeks, should the system permanently skip them for the rest of the vacation phase while continuing to cycle through employees who have fewer than nine?
+
+
+
+
+
+
+The amount of weeks per person and the amount of available spots per week should be adjustable via the admin control dashboard. There may be years openings expand/contract per week or allowed weeks are increased or decreased per person.
+
+
+2. Meaning of the rolling window
+
+
+
+
+3. In the existing web app, everyone currently shown in the selection window appears eligible to submit; the names “Active,” “Standby,” and “Backup” do not necessarily mean that Standby must wait for Active. For the new two-person windows, should both people be allowed to select immediately, with the window advancing whenever either submits?
+
+
+
+
+
+
+In this update, change the window labels as simply "Active". This can include 1 person 2 people 3 people and so on as the admin control tab options states per phase, the admin control tab will have options for the amount of window openings per phase.
+
+
+8. When a participant does not respond, how long should pass before the admin is notified?
+
+
+
+
+
+
+This should be a configurable (on the Admin control tab) number of hours, with a default such as 12 hours?
+
+
+9. Should reminders repeat, or should there be only:
+
+
+
+
+
+
+One notification when the person enters the window.
+
+
+Yes.
+
+
+One reminder after the configured delay.
+
+
+Yes.
+
+
+One admin alert after another configured delay.
+
+
+Yes.
+
+
+10. What window size should the transfer round use?
+
+
+
+
+
+
+Recommended: Two participants, configurable from the Options dashboard like the other phases window size.
+
+
+3. Holiday-volunteer phase
+
+
+
+
+4. Should the Rules and Tips acknowledgment include a separate choice such as:
+
+
+
+
+
+
+“I am willing to volunteer for one or more official holiday coverage positions this year.”
+
+
+This would be separate from the giver/receiver transfer preferences.
+
+
+12. May the holiday-volunteer choice be changed before the Holiday Volunteer Phase begins, or is the acknowledgment choice final for the year?
+
+
+
+
+
+
+Yes, it could be changed via notifying the admin, who can click the check box that has populated near they're name for such a preference. No additional needed mechanics here.
+
+
+13. Volunteers may take multiple holidays, but should they select:
+
+
+
+
+
+
+Recommended: One holiday call position per turn, then reenter the order on later cycles. This lets them take as many as they want without one person claiming several positions in a single submission.
+
+
+14. When a volunteer chooses Pass, does that mean:
+
+
+
+
+
+
+Permanently leave the volunteer phase.
+
+
+Yes, Permanently leave the volunteer phase.
+
+
+Recommended: Permanently leave the volunteer phase. Otherwise, the system cannot determine when voluntary interest has been exhausted.
+
+
+That's right.
+
+
+15. Should Call 1 for a holiday remain unavailable until Call 2 for that same holiday has been filled?
+
+
+
+
+
+
+Your answer says Call 2 should be filled first, but this could mean either:
+
+
+Call 2 merely appears first in the list.
+
+
+Call 1 is actually locked until Call 2 is assigned.
+
+
+It would be ok if Call 2 merely appears first in the list. That was there's not a false sense of scarcity.
+
+
+16. A person who accepts a holiday during an adjacent-weekend prompt is clearly filling a holiday voluntarily. Should that person remain eligible to take additional holiday positions during the later volunteer phase?
+
+
+
+
+
+
+Yes.
+
+
+17. If all remaining volunteers pass and holiday slots remain, should the system mark the volunteer phase complete and notify the admin that the Mandatory Holiday Phase is ready, rather than beginning it automatically?
+
+
+
+
+
+
+Yes.
+
+
+4. Mandatory holiday phase
+
+
+
+
+5. During mandatory assignment, should each eligible person be assigned no more than one holiday before anybody receives a second mandatory holiday?
+
+
+
+
+
+
+Recommended: Yes.
+
+
+Yes.
+
+
+19. Confirm the expansion sequence when there are not enough employees who worked zero holidays last year:
+
+
+
+
+
+
+Cycle through eligible employees who worked no holiday last year.
+
+
+Yes.
+
+
+Give each at most one mandatory holiday.
+
+
+Yes.
+
+
+If openings remain, expand the pool to everybody else.
+
+
+Yes.
+
+
+Continue in the same randomized order until all positions are filled.
+
+
+Yes.
+
+
+20. For last-year history, what exact checkboxes should appear beside each employee?
+
+
+
+
+
+
+Had Spring Break last year
+
+
+Yes.
+
+
+Had Christmas week last year
+
+
+Yes.
+
+
+One checkbox: Worked any official holiday last year
+
+
+Yes.
+
+
+Or should there be six separate holiday-history checkboxes showing exactly which holiday each person covered?
+
+
+No.
+
+
+21. If somebody claimed a holiday voluntarily earlier in the current year, they should be excluded from the mandatory pool because they already covered this year. Correct?
+
+
+
+
+
+
+Yes. If someone volunteers for a holiday , that should obviously count as their commitment that year. Voluntary or mandatory work history should have same weight.
+
+
+5. Weekend assignment meaning
+
+
+
+
+6. Please confirm the complete meaning of one weekend selection:
+
+
+
+
+
+
+Selecting Saturday means the employee is Saturday First Call and Sunday Second Call.
+
+
+The person selecting Sunday is Sunday First Call and Saturday Second Call. This first/second call imolication is widely understood among the participants and doesn't need further explanations.
+
+
+23. This means transferring a Saturday assignment must transfer the complete attached responsibility—Saturday First Call plus Sunday Second Call—not merely the Saturday portion. Correct?
+
+
+
+
+
+
+Yes that's the implication, when you transfer a weekend to someone else,they are on the hook to work Saturday and Sunday.
+
+
+24. The “adjacent to a vacation week” warning needs a precise definition. Should it examine only the selecting employee’s own vacation weeks?
+
+
+
+
+
+
+Yes. Each employee is it's own entity. When employee 1 picks vacation or weekend or holiday dates, this is their bed they make, if it's long stretches of consecutive weeks of work ECT , that's their choice due to their own planing and circumstances, employee 2 for example doesn't get impacted or care at all of that's the case for employee 1. The warning is simply a considerate prompt that most people wouldn't make that  choice as it may be a less desirable decision, but is should still be an option for them if they so choose. If you've got a week off work, very few people would choose to work the weekend leading to or exiting  a mon-fri vacation, it's desirable to have sat through sunday off work being a full 9 days off.
+
+
+25. Which weekend relationship should trigger that vacation warning?
+
+
+
+
+
+
+Weekend immediately before their vacation week.
+
+
+Weekend immediately after their vacation week.
+
+
+A weekend contained within their selected vacation period.
+
+
+All three.
+
+
+Yes. Yes. Yes. All three.
+
+
+26. The consecutive-weekend and vacation-adjacency conditions are warnings only and never block the selection. Correct?
+
+
+
+
+
+
+Correct, warnings only.
+
+
+6. Official and soft holiday proximity
+
+
+
+
+7. Should “within three days” mean the absolute calendar difference is three days or less, both before and after the holiday?
+
+
+
+
+
+
+That would naturally catch:
+
+
+Saturday/Sunday before a Monday Memorial Day.
+
+
+Saturday/Sunday after a Thursday Thanksgiving.
+
+
+Potential weekends on either side of a Friday observed holiday.
+
+
+Yes.
+
+
+28. Should the same ±3-day calculation apply to both official holidays and soft holidays?
+
+
+
+
+
+
+Yes.
+
+
+29. Official warnings and holiday reservations should use the employer-observed date, not the holiday’s nominal calendar date. Correct?
+
+
+
+
+
+
+Correct, but the dates will be auto-fill by admin controls and the admin will confirm or alter the dates prior to starting the first round.
+
+
+30. When the adjacent-weekend prompt appears, may the participant accept only one call position for that nearby holiday, even if both Call 1 and Call 2 remain open?
+
+
+
+
+
+
+Call 1 and call 2 should both be available to pick from for full transparency of what's available as each person may have their own personal agenda or priority values.
+
+
+31. The system should continue preventing one person from holding both call positions for the same holiday, including through the later transfer round. Correct?
+
+
+
+
+
+
+Correct. A person can not have the same week off more than once, they can not work a Saturday call 1 and a Sunday call 1, and they cannot work a holiday call 1 and call 2 at the same time.
+
+
+7. Transfer/Giveaway Round
+
+
+
+
+8. Should all givers submit their offered dates before the receiver-selection round begins?
+
+
+
+
+
+
+Recommended: Yes. The admin then starts the receiver round with a fixed initial pool.
+
+
+Yes.
+
+
+33. May a giver withdraw an offered date before somebody accepts it?
+
+
+
+
+
+
+Recommended: Yes, until it has been claimed.
+
+
+No.
+
+
+34. May givers add new dates after the receiver round has started, or should additions be locked once that round begins?
+
+
+
+
+
+
+No, lock it to allow for transparency and equality.
+
+
+35. Should the transfer receiver round restart at Lottery Position 1 and follow the serpentine order?
+
+
+
+
+
+
+Yes.
+
+
+36. Are the giver/receiver choices made during Rules acknowledgment editable until the transfer round starts?
+
+
+
+
+
+
+Yes, by the admin via a simple check box, this check box will populate true or false when they elect to participate.
+
+
+37. All original assignment restrictions should remain active during transfers:
+
+
+
+
+
+
+A receiver cannot take both Saturday and Sunday positions for the same weekend.
+
+
+True.
+
+
+A receiver cannot take both holiday call positions for the same holiday.
+
+
+True.
+
+
+Consecutive-weekend and vacation-adjacency situations produce warnings but remain allowed.
+
+
+True.
+
+
+38. You do not want a general audit log, but you do want transfer history. Please confirm the desired distinction:
+
+
+
+
+
+
+No general log of admin actions, overrides, resets, or forced assignments.
+
+
+True.
+
+
+A dedicated transfer-history table recording original assignee, receiver, assignment type, date, call position, and transfer timestamp.
+
+
+True.
+
+
+8. Options dashboard and notifications
+
+
+
+
+9. Which settings should be adjustable from the Options dashboard? My proposed list is:
+
+
+
+
+
+
+Vacation selection-window size, default 3.
+
+
+Weekend selection-window size, default 2.
+
+
+Holiday selection-window size, default 2.
+
+
+Transfer selection-window size, default 2.
+
+
+Required vacation weeks per employee, default 9.
+
+
+SMS notifications enabled/disabled.
+
+
+Participant reminder delay, default 360 minutes.
+
+
+Admin nonresponse-alert delay, default 720 minutes.
+
+
+Holiday proximity range, default 3 days.
+
+
+Rules and Tips text.
+
+
+Spouse-reminder text.
+
+
+Am added consideration:
+We haven't talked about this, but a checkbox next to each participant to turn their participation on or off or a set number of default requirements for each person might be useful, there are edgecase situations that a participant might plan to work a partial upcoming year, there-by only qualifying to require admin discretion of weeks of vacation maximum, weekends minimum and holidays minimum.
+
+
+40. Are notifications definitely standard Twilio SMS, or do you want WhatsApp notifications through Twilio? Those are different delivery channels and should not be described interchangeably in the build requirements.
+
+
+
+
+
+
+Forget about any WhatsApp integration,every participant will have access to an SMS enabled device.
+
+
+41. Twilio account credentials and authentication tokens should remain in Apps Script Properties rather than being displayed or stored in the Options tab. The Options dashboard would hold only safe behavioral settings. Correct? The existing admin instructions already warn against putting passwords or Twilio credentials into spreadsheet cells.
+
+
+
+
+
+
+Make this a large change to the admin instructions ECT, I want the settings and credentials for the sms mechanism to be on the admin options tab. I have confidence this sheet will remain behind Google credentials and the preloaded monetary potential losses are limited. Security for this project is not off Paramount importance, but only a consideration for warning against irresponsible decisions.
+
+
+9. Annual setup
+
+
+
+
+10. Auto-Fill/Randomize should:
+
+
+
+
+
+
+Preserve the admin-entered Seniority Position.
+
+
+Randomly generate the yearly Lottery Position.
+
+
+Use that same Lottery Position for all later phases.
+
+
+Correct?
+
+
+Yes. Extra clarity... Use that same Lottery Position for all later phases of the current year.
+
+
+43. After Auto-Fill/Randomize runs once, may the admin manually correct dates, observed holidays, soft holidays, and Prime classifications before confirmation and launch?
+
+
+
+
+
+
+Yes.
+
+
+44. Because rerunning Auto-Fill is prohibited, should the admin confirmation screen include a final summary showing:
+
+
+
+
+
+
+Participant count.
+
+
+Complete seniority order.
+
+
+Complete randomized order.
+
+
+Number of vacation weeks.
+
+
+Number of weekend positions.
+
+
+Six official holidays and their observed dates.
+
+
+Enabled soft holidays.
+
+
+Prime-week classifications.
+
+
+Yes.
+
+
+45. The acknowledgment itself does not require a timestamp, but the system must still store each participant’s holiday-volunteer and transfer-participation choices so the later phases know who is eligible. Correct?
+
+
+
+
+
+
+Yes, should be recorded with a name next to the date just like the vacation dates are being recorded.
+
+
+Once these are resolved, the workflow becomes unambiguous:
+
+
+Vacation Round 1 by Seniority → Randomized Vacation Rounds → Weekend Phase → Holiday Volunteer Phase → Mandatory Holiday Phase if needed → Transfer/Giveaway Round.
+
+
+Any additional questions or concerns before Jules prompt for this huge update?
+
+
+Prompt response #3
+
+
+Worked for 3m 2s
+
+
+Almost. The broad workflow is settled, but a few edge cases still need exact answers so Jules does not have to invent behavior. The old workbook and weekend backend do not define these newer concurrency, transfer, and per-participant override mechanics.
+
+
+Final decisions needed
+
+
+1. Holiday-volunteer enrollment
+
+
+
+
+
+
+Question 11 was not answered directly. Should the Rules & Tips acknowledgment include a separate checkbox:
+
+
+> I am willing to volunteer for one or more official holiday call positions this year.
+
+
+
+
+
+
+Only checked participants would enter the Holiday Volunteer Phase, although the admin could change the checkbox before that phase begins.
+
+
+Recommended: Yes.
+
+
+Also confirm that volunteers select one holiday call position per turn, then return later in the serpentine rotation until they either pass permanently or all positions are filled.
+
+
+Yes.
+Participant will be asked "I am willing to volunteer for one or more official holiday call positions this year." With a drop down box to confirm yes or no. This will be a required answer that will not allow advancement until chosen. The answer will corospond to a check box for admin to see the answer and to change manually later if the need arises.
+
+
+2. Exact notification timing
+
+
+
+
+
+
+Two different defaults were mentioned:
+
+
+A possible 12-hour participant delay.
+
+
+Participant reminder at 360 minutes and admin alert at 720 minutes.
+
+
+My recommended interpretation is:
+
+
+Immediate SMS when entering the Active window.
+
+
+Participant reminder 360 minutes after entering.
+
+
+Admin alert 720 minutes after entering.
+
+
+Yes.
+
+
+No automatic recurring reminders after the admin alert, although the admin can manually resend one.
+
+
+True.
+
+
+Should the 720-minute admin timer run from the original notification or begin after the 360-minute reminder? Running both from the original notification is simpler and produces an admin alert at 12 hours rather than 18 hours.
+
+
+Yes, the 720-minute admin timer run from the original notification.
+
+
+3. Simultaneous-selection conflicts
+
+
+
+
+
+
+With multiple people Active simultaneously, two people may select the same vacation opening, weekend, holiday call position, or transfer item within seconds of each other.
+
+
+Recommended rule:
+
+
+> The first valid completed submission wins. The second submission receives an immediate “That position was just selected” message, remains Active, and must choose another available option. Their turn is not consumed.
+
+
+
+
+
+
+Yes.
+
+
+This should be explicit for every phase.
+
+
+4. Serpentine reversals with multi-person windows
+
+
+
+
+
+
+At the end of a serpentine order, the endpoint employee receives consecutive turns:
+
+
+… 19 → 20 → 21 → 21 → 20 → 19 …
+
+
+However, the same employee should never occupy two Active-window positions simultaneously.
+
+
+Recommended behavior:
+
+
+> The endpoint employee receives their second consecutive turn only after completing the first. Duplicate appearances for the same person are never displayed in the Active window at the same time.
+
+
+
+
+
+
+True. The last person should finish their turn and all others in the window should finish...only then should the last person have the opportunity to choose again as the round participant window coming down the line is completely separate and should be complete before the next round ascending window opens.
+
+
+Confirm this rule.
+
+
+5. Per-participant participation and requirements
+
+
+
+
+
+
+This is the largest remaining design question. A single participation checkbox and “minimums” do not completely define when the queue should skip a partial-year employee.
+
+
+I recommend allowing blank participant-level overrides that inherit global defaults:
+
+
+Participant control        Meaning
+
+
+Active for Year        Included anywhere in this year’s system
+Vacation Enabled        Included in vacation phase
+Vacation Week Target        Maximum/goal before being skipped
+Weekend Enabled        Included in weekend phase
+Weekend Assignment Cap        Skipped after reaching this number
+Holiday Volunteer Allowed        May join voluntary holiday phase
+Mandatory Holiday Requirement        Usually 0 or 1
+Transfer Giver        May offer assignments
+Transfer Receiver        May receive assignments
+
+
+A weekend minimum would not protect someone working a partial year because the lottery could continue assigning them additional weekends after they reached the minimum. A weekend cap or target is needed to tell the queue when to skip them.
+
+
+Please clarify:
+
+
+Should participation be switchable independently for vacation, weekend, and holiday phases?
+
+
+Yes.
+
+
+Should partial-year employees have a weekend maximum, a required target, or merely a minimum?
+
+
+A maximum.
+
+
+May someone excluded from mandatory holidays still volunteer for a holiday?
+
+
+Yes.
+
+
+When all enabled employees reach their weekend caps but weekend slots remain, should the system halt and notify the admin?
+
+
+Notify Admin. But, this shouldn't happen because the maximum weekend count is an edgecase for a person or two,everyone else will qualify and be required to continue filling spots until all weekend spots are consumed.
+
+
+6. Mandatory-holiday fallback pool
+
+
+
+
+
+
+Two answers create a small ambiguity:
+
+
+Anyone who volunteered for a current-year holiday is excluded from mandatory assignment.
+
+
+If the initial pool is insufficient, expand to everyone else.
+
+
+Recommended expansion:
+
+
+1. Employees with no prior-year holiday and no current-year holiday.
+
+
+
+
+
+
+Yes.
+
+
+2. Employees who worked a prior-year holiday but have no current-year holiday.
+
+
+
+
+
+
+Yes.
+
+
+3. Never assign a second mandatory holiday to someone who already has a current-year holiday unless the admin explicitly overrides the rule.
+
+
+
+
+
+
+False, continue mandatory assignments until holiday spots are filled.
+
+
+4. If the remaining eligible population is still insufficient, halt and notify the admin.
+
+
+
+
+
+
+continue mandatory assignments until holiday spots are filled.
+
+
+Is that the intended sequence?
+
+
+7. Exact vacation-weekend warning dates
+
+
+
+
+
+
+You described a vacation week as Monday through Friday, with the desirable result being the preceding Saturday through the following Sunday off—nine consecutive days.
+
+
+Recommended precise rule for a vacation beginning Monday:
+
+
+Warn for the preceding Saturday.
+
+
+Warn for the preceding Sunday.
+
+
+Warn for the following Saturday.
+
+
+Warn for the following Sunday.
+
+
+There would not really be a separate “weekend contained within the vacation week” unless the app presently defines a vacation week as seven calendar days. Should the warning use the four dates above?
+
+
+Yes.
+
+
+8. Transfer acceptance and unclaimed assignments
+
+
+
+
+
+
+Recommended exact mechanics:
+
+
+A giver’s offer becomes irrevocable when they submit and confirm it.
+
+
+The assignment still legally remains theirs until a receiver accepts it.
+
+
+Receiver selection and acceptance happen in one confirmation screen and one atomic submission.
+
+
+A receiver can accept one assignment per turn and receive additional turns on later cycles.
+
+
+Selecting None permanently removes that receiver from the round.
+
+
+When every remaining receiver has selected None, unclaimed assignments remain with their original assignees.
+
+
+The transfer round then becomes Ready to Complete.
+
+
+Yes.
+
+
+Please confirm, especially what happens to assignments that nobody accepts.
+
+
+9. Holidays filled during the weekend phase
+
+
+
+
+
+
+It is possible for every holiday call position to be accepted through holiday-adjacent weekend prompts before the Holiday Volunteer Phase begins.
+
+
+Recommended behavior:
+
+
+> The system marks Holiday Coverage Complete, shows that no volunteer or mandatory phase is needed, and lets the admin proceed directly to the Transfer/Giveaway Round.
+
+
+
+
+
+
+Yes.
+
+
+The admin would not need to start empty holiday phases.
+
+
+Yes, if the Holiday spots are consumed, there is no need to start an empty phase.
+
+
+10. Setup confirmation and locking
+
+
+
+
+
+
+Recommended annual setup state sequence:
+
+
+Empty Setup → Auto-Filled/Randomized → Admin Review → Setup Confirmed → Begin Seniority Round
+
+
+Before Setup Confirmed, the admin may edit dates, classifications, employee overrides, holiday warnings, and observed dates. After confirmation:
+
+
+Random order is locked.
+
+
+Seniority order is locked.
+
+
+Generated dates and holiday definitions are locked through the web admin interface.
+
+
+Prime classifications are locked.
+
+
+Any necessary correction requires a clearly labeled admin override, not rerunning Auto-Fill/Randomize.
+
+
+Should admin overrides remain possible after the lottery begins, or should corrections require direct spreadsheet editing?
+
+
+Yes, admin overrides remain possible after the lottery begins, via corrections directly edited on the spreadsheet.
+
+
+The Auto-Fill/Randomize preflight should also identify the exact blocking data—such as “Weekend Assignments contains 47 names”—rather than showing only a generic failure.
+
+
+Yes.
+
+
+11. Preference storage clarification
+
+
+
+
+
+
+The transfer and holiday-volunteer preferences should normally be stored on each participant’s row:
+
+
+Holiday Volunteer
+
+
+Transfer Giver
+
+
+Transfer Receiver
+
+
+Assignments themselves continue showing the employee’s name beside the applicable date or call position.
+
+
+Your statement that preferences should be “recorded with a name next to the date” sounds more like assignment storage. Confirm that the preferences belong on the participant record, not beside every calendar date.
+
+
+I'm happy to see the creativity of this exchange mechanism Jules or chatgpt imagines as my only preference is to have it user friendly and identify-able by the not tech savvy administrator.
+
+
+Twilio credential concern
+
+
+I will treat your decision as intentional: Twilio settings and credentials will be stored on the Admin Options tab rather than Apps Script Properties.
+
+
+Yes.
+
+
+The Jules requirements should nevertheless state:
+
+
+Never send the authentication token to participant-facing browser code.
+
+
+Never include credentials in SMS errors, logs, status responses, or transfer history.
+
+
+Mask the token in the web-based admin screen after saving.
+
+
+Protect and clearly label the credential cells.
+
+
+Display a warning that any Google Sheet editor can read or copy those credentials and that protected or hidden cells are not secret from editors.
+
+
+That preserves your preferred convenience without accidentally exposing the token through the public web app.
+
+
+Yes, true.
+
+
+Once these items are answered, the Jules prompt can specify the complete update without leaving consequential implementation choices open.
+
+
+
+
+#4 Prompt summary #1
+
+
+There are no remaining blocking design questions. The system is defined well enough for a detailed Jules implementation prompt.
+
+
+The archived workbook’s seniority-first vacation round, later serpentine order, Prime-week restrictions, weekend assignments, and two-person holiday coverage are all accounted for in the updated design.  The separate weekend backend’s adjustable participant list and one-person-per-day assignment model are also being preserved inside the integrated application.
+
+
+Final interpretations I will carry into the Jules prompt
+
+
+Mandatory holiday cycling
+
+
+The mandatory phase will operate in tiers:
+
+
+1. Employees with no prior-year holiday and no current-year holiday are called first.
+
+
+
+
+2. Each receives no more than one mandatory assignment during that initial pass.
+
+
+
+
+3. The pool expands to employees who worked a holiday last year but have no current-year holiday.
+
+
+
+
+4. If openings still remain, the complete mandatory-eligible pool continues cycling in the same serpentine order. Additional assignments may then be given to people who already hold a current-year holiday until every slot is filled.
+
+
+
+
+
+
+The system does not stop merely because everyone already has one holiday.
+
+
+Per-participant controls
+
+
+The administrator will receive clear participant-level controls rather than one overloaded participation setting:
+
+
+Active for current year
+
+
+Vacation phase enabled
+
+
+Vacation-week target override
+
+
+Weekend phase enabled
+
+
+Weekend-assignment maximum
+
+
+Holiday volunteer response
+
+
+Mandatory holiday eligible
+
+
+Transfer giver
+
+
+Transfer receiver
+
+
+
+
+Blank vacation targets inherit the global vacation target. A blank weekend maximum means the participant continues normally until all weekend slots are filled. Turning off mandatory eligibility does not prevent voluntary holiday participation.
+
+
+A separate numerical mandatory-holiday cap is not necessary unless you later decide an individual must never receive more than a specific number. The present rules allow repeat mandatory assignments when needed to finish coverage.
+
+
+Serpentine window reversal
+
+
+The direction change will be handled as a real round boundary.
+
+
+At the end of the descending order, the system waits for every participant currently Active in that directional window to finish. Only then does it open the ascending window. The endpoint participant may then appear again, but will never occupy two Active positions at once.
+
+
+Direct spreadsheet corrections
+
+
+Because you want corrections made directly in the spreadsheet after setup or even after the lottery begins, Jules should ensure the spreadsheet remains the authoritative source of truth.
+
+
+The implementation should include an administrator-facing Refresh/Reconcile From Sheet operation, or equivalent automatic rereading, so a direct correction does not leave cached queue, availability, phase, or assignment data out of sync. It should validate the edited data and clearly report conflicts rather than silently overwriting the correction.
+
+
+Preference storage
+
+
+For clarity to a nontechnical administrator:
+
+
+Volunteer/giver/receiver preferences belong on each participant’s row as recognizable checkboxes or Yes/No values.
+
+
+Vacation, weekend, and holiday assignments continue to display the participant’s name beside the applicable date and position.
+
+
+Transfer history remains in its own dedicated table.
+
+
+
+
+Twilio credentials
+
+
+The prompt will intentionally replace the existing “never store credentials in the sheet” direction. Twilio settings and credentials will be stored on the protected Admin Options tab, while enforcing these boundaries:
+
+
+Credentials remain server-side.
+
+
+Participant-facing browser code never receives the token.
+
+
+Tokens are masked in the web admin interface.
+
+
+Logs, errors, SMS status messages, and transfer records never contain credentials.
+
+
+The sheet warns that every Google Sheet editor can still view or copy the credentials, regardless of protected or hidden cells.
+
+
+
+
+The working sequence is now fully defined:
+
+
+Annual Setup and Confirmation → Seniority Vacation Round → Automatic Randomized Serpentine Vacation Rounds → Admin-Started Weekend Phase → Admin-Started Holiday Volunteer Phase → Admin-Started Mandatory Holiday Phase when needed → Admin-Started Transfer/Giveaway Round.
+
+
+#5 Prompt Summary #2
+
+
+Implement the complete integrated Vacation, Weekend, Holiday, and Transfer/Giveaway system in:
+
+
+Wakeboardsam/Vacation-Selector
+
+
+Start from the current main branch. The existing vacation-week web app is working well and must remain functional. This is an expansion of the existing system, not a rewrite that discards its working behavior.
+
+
+Create a feature branch and submit the completed work as a pull request. Use clear incremental commits within the branch so individual portions can be reviewed or reverted. Do not commit directly to main.
+
+
+Before changing anything:
+
+
+1. Inspect the entire current repository.
+2. Understand the existing Apps Script functions, HTML interface, spreadsheet tabs, tests, notification system, locking, queue calculations, Admin Control tab, and automatic Round 1-to-Round 2 transition.
+3. Preserve existing login, PIN, vacation-selection, styling, dashboard, and SMS behavior unless this prompt explicitly changes it.
+4. Treat the requirements in this prompt as the authoritative source when they conflict with older plans or documentation.
+5. Do not hard-code a participant count. The roster changes from year to year.
+6. Do not ask for additional product decisions unless an actual technical impossibility is discovered. Make reasonable implementation choices that preserve the behavior described here.
+
+
+This is a large end-to-end feature. Do not submit only scaffolding, placeholder screens, or an incomplete backend. Implement the participant experience, admin controls, spreadsheet schema, validations, phase transitions, notifications, migration/setup functions, documentation, and tests.
+
+
+==================================================
+PRIMARY WORKFLOW
+==================================================
+
+
+The application remains one integrated web app with one login, one participant roster, one annual lottery order, and clearly separated phases:
+
+
+1. Annual Setup and Confirmation
+2. Vacation Round 1 — Seniority order
+3. Vacation Round 2 and later — Randomized serpentine order
+4. Weekend Coverage Phase
+5. Holiday Volunteer Phase
+6. Mandatory Holiday Phase, when needed
+7. Transfer/Giveaway Offer Collection
+8. Transfer/Giveaway Receiver Selection
+9. Completed Year
+
+
+The same randomized Lottery Position generated for the selected year must be used for the vacation randomized rounds, weekend phase, holiday phases, and transfer receiver phase.
+
+
+Each later phase starts at Lottery Position 1. Do not continue a later phase from wherever the previous phase happened to end.
+
+
+No new major phase starts automatically. The application may mark a phase “Ready to Advance,” but the administrator must explicitly start it.
+
+
+Required admin actions include:
+
+
+- Begin Seniority Round
+- Begin Weekend Phase
+- Begin Holiday Volunteer Phase
+- Begin Mandatory Holiday Phase
+- Begin Transfer Round
+- Lock Transfer Offers and Begin Receiver Selection
+- Complete Transfer Round
+
+
+The one exception is the existing automatic transition from completed Vacation Round 1 into randomized Vacation Round 2. Preserve that automatic transition.
+
+
+If all official holiday positions are already filled through the weekend-phase holiday prompts, mark Holiday Coverage Complete and do not require the administrator to begin empty volunteer or mandatory phases. The administrator may proceed to the Transfer/Giveaway phase.
+
+
+Represent the workflow with an explicit, durable phase/state model in the spreadsheet rather than inferring the current phase from scattered statuses.
+
+
+==================================================
+SPREADSHEET AS SOURCE OF TRUTH
+==================================================
+
+
+The spreadsheet is the authoritative source of truth.
+
+
+Do not rely on long-lived browser state or cached assignment data. Server operations must reread the relevant sheet data before validating and writing.
+
+
+Add an administrator operation called “Refresh/Reconcile From Sheet,” or an equivalent clearly labeled action. It must:
+
+
+- Reread direct spreadsheet edits.
+- Recalculate availability and remaining capacities.
+- Recalculate participant totals.
+- Recalculate phase readiness and completion.
+- Validate active-window and queue state.
+- Identify conflicts clearly.
+- Never silently overwrite a direct administrator correction merely because cached data disagrees.
+
+
+The administrator may make direct spreadsheet corrections even after the lottery begins.
+
+
+Do not build a general business audit log for admin edits, overrides, resets, or forced assignments. Preserve any technical error or notification logs already needed for reliable operation. A dedicated Transfer History table is required and is described later.
+
+
+==================================================
+ANNUAL SETUP AND AUTO-FILL/RANDOMIZE
+==================================================
+
+
+There is one active lottery year at a time. Historical archiving remains a manual administrator responsibility.
+
+
+Add an administrator control labeled:
+
+
+AUTO-FILL / RANDOMIZE
+
+
+Include a plain-language description beside it explaining everything the action will do.
+
+
+The administrator enters the target year and must type that year again as confirmation before Auto-Fill/Randomize can run.
+
+
+The action must:
+
+
+- Preserve administrator-entered Seniority Positions.
+- Randomize the yearly Lottery Positions.
+- Include only participants marked Active for Year.
+- Generate the vacation-week dates using the current application’s established annual boundary convention.
+- Generate all Saturday and Sunday weekend positions for the applicable annual schedule.
+- Permit the normal New Year boundary overlap used by the existing process, subject to administrator review.
+- Generate the six official employer-observed holiday dates.
+- Generate the default soft holidays.
+- Create empty assignment positions.
+- Suggest Prime and Non-Prime vacation classifications.
+- Preserve the same Lottery Position for all phases of that year.
+
+
+Default official holidays:
+
+
+- New Year’s Day
+- Memorial Day
+- Independence Day
+- Labor Day
+- Thanksgiving
+- Christmas
+
+
+These must use employer-observed dates. Auto-fill may suggest those dates, but the administrator must be able to correct them before setup confirmation.
+
+
+Default soft holidays:
+
+
+- Presidents’ Day
+- Valentine’s Day
+- Easter
+- Mother’s Day
+- Father’s Day
+
+
+Allow the administrator to:
+
+
+- Enable or disable each soft-holiday warning independently.
+- Correct any generated date.
+- Add additional soft holidays or custom warning dates.
+- Correct official observed holiday dates.
+- Correct weekend boundaries.
+- Correct Prime classifications.
+- Correct employee overrides.
+- Correct the randomized order manually before setup confirmation.
+
+
+Auto-Fill/Randomize must be blocked if the workbook is not a fresh setup.
+
+
+Blocking conditions include any existing:
+
+
+- Vacation assignment.
+- Weekend assignment.
+- Holiday assignment.
+- Participant selection count.
+- Completed participant status.
+- Transfer offer.
+- Transfer history entry.
+- Existing active-year operational history that would make regeneration unsafe.
+
+
+Return exact blockers, not a generic error. Example:
+
+
+“Auto-Fill blocked: Weekend Coverage contains 47 assigned positions and Week Availability contains 12 participant names.”
+
+
+Do not automatically archive or clear existing data. Do not create an automatic snapshot.
+
+
+Auto-Fill/Randomize cannot be rerun merely to correct a date. Corrections are made manually after generation.
+
+
+Use this setup-state sequence:
+
+
+EMPTY SETUP
+→ AUTO-FILLED / RANDOMIZED
+→ ADMIN REVIEW
+→ SETUP CONFIRMED
+→ SENIORITY ROUND READY
+
+
+Before Setup Confirmed, permit edits to dates, classifications, orders, participant overrides, holidays, and warnings.
+
+
+Before confirmation, show an administrator summary containing:
+
+
+- Selected year.
+- Participant count.
+- Complete seniority order.
+- Complete randomized order.
+- Number of vacation weeks.
+- Default and overridden vacation capacities.
+- Number of weekend positions.
+- Six official holidays and observed dates.
+- Enabled soft holidays and dates.
+- Prime-week classifications.
+- Per-participant overrides.
+
+
+Require explicit administrator confirmation of:
+
+
+- Roster.
+- Seniority order.
+- Lottery order.
+- Vacation dates.
+- Prime classifications.
+- Weekend dates.
+- Official holidays.
+- Soft holidays.
+- Phone numbers and PINs.
+
+
+After setup confirmation, the normal web controls must lock the randomized order, seniority order, generated dates, holiday definitions, and Prime classifications. Direct spreadsheet corrections remain possible and are incorporated through reconciliation.
+
+
+==================================================
+ADMIN OPTIONS AND PARTICIPANT CONTROLS
+==================================================
+
+
+Create or expand a clear, mobile-readable Admin Options/Admin Control experience designed for a nontechnical administrator.
+
+
+Global options must include:
+
+
+- Active lottery year.
+- Vacation active-window size, default 3.
+- Weekend active-window size, default 2.
+- Holiday active-window size, default 2.
+- Transfer receiver active-window size, default 2.
+- Default vacation-week target per participant, default 9.
+- Default maximum participant capacity per vacation week, default 4.
+- Per-week vacation-capacity overrides.
+- SMS notifications enabled/disabled.
+- Participant reminder delay, default 360 minutes.
+- Admin nonresponse alert delay, default 720 minutes.
+- Holiday/soft-holiday proximity warning range, default 3 calendar days.
+- Administrator notification phone number.
+- Rules and Tips text.
+- Contextual reminder text.
+- Spouse reminder text.
+- Twilio Account SID.
+- Twilio authentication token.
+- Twilio sending phone number and any other currently required SMS settings.
+
+
+Each participant needs clearly labeled fields or checkboxes for:
+
+
+- Active for Year.
+- Vacation Phase Enabled.
+- Vacation Week Target Override.
+- Weekend Phase Enabled.
+- Weekend Assignment Maximum.
+- Holiday Volunteer Response.
+- Mandatory Holiday Eligible.
+- Transfer Giver.
+- Transfer Receiver.
+- Had Spring Break Last Year.
+- Had Christmas Week Last Year.
+- Worked Any Official Holiday Last Year.
+- Existing name, PIN, phone number, Seniority Position, and Lottery Position fields.
+
+
+Rules for overrides:
+
+
+- Blank Vacation Week Target Override inherits the global vacation target.
+- Blank Weekend Assignment Maximum means no individual cap; the employee remains in the weekend rotation until coverage is complete.
+- Vacation, weekend, and holiday participation can be controlled independently.
+- Someone excluded from mandatory holidays may still volunteer for holidays.
+- Someone may be active for the year but disabled for a specific phase.
+- If every weekend-enabled participant has reached an individual maximum while weekend positions remain, halt weekend advancement and notify the administrator.
+- Do not rerandomize the annual order when a phase setting changes.
+
+
+Use readable headers and recognizable checkboxes or Yes/No values. Do not require the administrator to interpret internal status codes.
+
+
+==================================================
+RULES AND TIPS
+==================================================
+
+
+Add all three forms of Rules and Tips access:
+
+
+1. A permanent Rules & Tips button in the participant web-app header.
+2. Short context-sensitive reminders on each relevant selection screen.
+3. A required once-per-year acknowledgment before a participant may make their first selection.
+
+
+Rules and Tips text must be editable from a spreadsheet-backed Rules & Tips or Admin Options area without requiring redeployment.
+
+
+Do not include the old adult or workplace-inappropriate holiday descriptions. Only retain appropriate operational text and the new lighthearted spouse reminder.
+
+
+The acknowledgment does not need a timestamp.
+
+
+During acknowledgment, require an answer to:
+
+
+“I am willing to volunteer for one or more official holiday call positions this year.”
+
+
+Use a required Yes/No dropdown. The participant cannot complete acknowledgment until an answer is selected.
+
+
+Also require the transfer preference:
+
+
+- Offer assignments.
+- Receive assignments.
+- Both offer and receive.
+- Do not participate.
+
+
+This may be implemented as one required dropdown or equivalent unambiguous controls.
+
+
+Store the resulting Holiday Volunteer, Transfer Giver, and Transfer Receiver values on the participant record. Display them as simple administrator checkboxes or Yes/No values. The administrator may edit them before the applicable phase.
+
+
+==================================================
+ACTIVE WINDOWS AND SERPENTINE ORDER
+==================================================
+
+
+Replace participant-facing labels such as Active, Standby, and Backup with the single label:
+
+
+ACTIVE
+
+
+Every person displayed in the current active window may submit immediately. The window size is configurable by phase and may be 1, 2, 3, or another reasonable positive number.
+
+
+During normal movement, the window remains rolling: when one active participant completes a valid turn, the next eligible participant enters.
+
+
+All randomized phases use serpentine movement:
+
+
+1 → last
+last → 1
+1 → last
+and so on.
+
+
+The endpoint participant receives the normal consecutive opportunity at a reversal, but never appears twice in the active window simultaneously.
+
+
+Treat a direction reversal as a real window boundary:
+
+
+- When the order reaches an endpoint, do not immediately insert the endpoint participant’s second appearance.
+- Wait for every other participant already active in the current directional window to complete.
+- Close that directional window.
+- Open a new window moving in the opposite direction.
+- The endpoint participant may then appear again for their next valid turn.
+
+
+No participant may occupy two active-window positions at once.
+
+
+Every phase independently starts at Lottery Position 1.
+
+
+==================================================
+CONCURRENCY AND ATOMIC VALIDATION
+==================================================
+
+
+Use LockService or an equally safe Apps Script locking mechanism for:
+
+
+- Vacation selections.
+- Weekend selections.
+- Holiday selections.
+- Adjacent holiday reservations.
+- Transfer claims.
+- Phase transitions.
+- Setup actions.
+- Queue advancement.
+
+
+For every phase, use this conflict rule:
+
+
+The first valid completed submission wins.
+
+
+If another active participant submits for the same final opening or assignment:
+
+
+- Reject only the conflicting submission.
+- Return a clear message such as:
+  “That position was just selected by another participant. Please choose another available option.”
+- Keep the participant Active.
+- Do not consume their turn.
+- Refresh their available choices immediately.
+
+
+The final validation and write must occur atomically against freshly read spreadsheet values.
+
+
+==================================================
+VACATION PHASE
+==================================================
+
+
+Round 1:
+
+
+- The entire first vacation round uses Seniority Position.
+- Use the configured vacation active-window size.
+- The administrator explicitly begins the seniority round after setup confirmation.
+- After every eligible participant completes Round 1, automatically transition to Round 2.
+
+
+Round 2 and later:
+
+
+- Use the annual Lottery Position.
+- Use serpentine movement.
+- Continue until participants reach their configured vacation targets or the administrator manually advances the phase.
+
+
+Vacation rules:
+
+
+- A Prime vacation selection must stand alone.
+- A participant may select exactly one Prime week on that turn.
+- A participant may select one or two Non-Prime weeks on a turn.
+- Selecting two Non-Prime weeks forfeits that participant’s next scheduled appearance.
+- Selecting one Non-Prime week does not forfeit the next appearance.
+- A Prime pick does not grant an immediate extra turn. The participant waits for their normal next appearance.
+- A participant may not select the same vacation week twice.
+- Respect each vacation week’s current capacity.
+- Global capacity defaults to 4, with per-week administrator overrides.
+- Once a participant reaches their personal vacation-week target, skip them for the rest of the vacation phase.
+- The global target defaults to 9.
+- The administrator may begin the Weekend Phase before everyone reaches the target.
+- When the administrator advances early, incomplete vacation totals are accepted and frozen. The administrator may correct or assign missing weeks manually later.
+
+
+Prime classification:
+
+
+- Auto-fill may suggest Prime classifications.
+- The administrator confirms or changes them before beginning Round 1.
+- Thanksgiving is not automatically authoritative as Prime; the administrator’s confirmed classification controls.
+- Preserve a way to distinguish the specially restricted Spring Break week and Christmas week from ordinary Prime weeks.
+
+
+Prior-year restrictions:
+
+
+- Participants marked Had Spring Break Last Year cannot select the designated Spring Break week during Vacation Rounds 1 through 3.
+- They become eligible beginning in Round 4.
+- Participants marked Had Christmas Week Last Year cannot select the designated Christmas week during Rounds 1 through 3.
+- They become eligible beginning in Round 4.
+- The restriction applies only to the exact break previously held.
+- Having Spring Break last year does not block Christmas, and vice versa.
+
+
+==================================================
+WEEKEND COVERAGE PHASE
+==================================================
+
+
+The administrator starts the Weekend Phase after vacation selections are complete or intentionally ended.
+
+
+Weekend phase rules:
+
+
+- Restart at Lottery Position 1.
+- Use the annual randomized serpentine order.
+- Default active-window size is 2 and is configurable.
+- Each participant selects exactly one weekend position per turn.
+- Continue cycling until every required weekend position is filled.
+- Weekend assignments are mandatory for enabled participants, subject to individual maximums.
+- Prior-year weekend counts do not affect the new year.
+- Do not attempt to equalize assignments across years.
+- The random serpentine order naturally determines who receives extra assignments when the total does not divide evenly.
+
+
+Each weekend has two selectable positions:
+
+
+- Saturday First Call.
+- Sunday First Call.
+
+
+The operational implication is understood by participants:
+
+
+- The Saturday First Call participant is also Sunday Second Call.
+- The Sunday First Call participant is also Saturday Second Call.
+
+
+The participant interface does not need a lengthy explanation of that implication, but the data model and transfers must preserve it.
+
+
+A participant cannot hold both Saturday First Call and Sunday First Call for the same weekend.
+
+
+A weekend transfer transfers the entire attached weekend responsibility, not only one isolated day.
+
+
+A weekend selection should show:
+
+
+- Exact date.
+- Day of week.
+- First Call position.
+- Existing assignment for the other day.
+- Nearby warnings.
+- Optional nearby official-holiday opportunity when applicable.
+
+
+==================================================
+WEEKEND WARNINGS
+==================================================
+
+
+Warnings are advisory only. They never block a valid weekend selection.
+
+
+Consecutive weekend warning:
+
+
+Warn when the participant already holds an immediately preceding or immediately following weekend assignment.
+
+
+Vacation adjacency warning:
+
+
+Evaluate only that participant’s own vacation weeks.
+
+
+For a Monday-through-Friday vacation week, warn if the participant selects:
+
+
+- The preceding Saturday.
+- The preceding Sunday.
+- The following Saturday.
+- The following Sunday.
+
+
+This represents the four weekend positions that would interrupt the usual nine consecutive days away from work.
+
+
+Use a friendly warning explaining that the participant is selecting a weekend next to their own vacation but may continue.
+
+
+Official and soft holiday warning:
+
+
+Use the configurable calendar-day range, default ±3 days, in both directions.
+
+
+Show:
+
+
+- Event or holiday name.
+- Exact date.
+- Whether it is an official coverage holiday or only a soft-holiday warning.
+- The configured lighthearted spouse reminder.
+
+
+Suggested tone:
+
+
+“There’s a holiday near this weekend. Would taking the holiday too save someone else’s plans—and is your spouse going to approve this choice? 😉”
+
+
+Keep the text administrator-editable.
+
+
+==================================================
+HOLIDAY RESERVATION DURING WEEKEND SELECTION
+==================================================
+
+
+When a selected weekend position is within the configured range of an official employer-observed holiday:
+
+
+- Show the exact official holiday and date.
+- Show all still-available Call 1 and Call 2 positions.
+- Display Call 2 before Call 1 because Call 2 is generally more desirable.
+- Do not lock Call 1 until Call 2 is filled.
+- Permit the participant to decline.
+- Permit the participant to reserve one available holiday call position as part of that weekend-selection flow.
+
+
+Both Call 1 and Call 2 must remain transparently visible when available.
+
+
+A participant cannot hold both call positions for the same holiday.
+
+
+The combined weekend and optional holiday submission must be atomically validated. If the holiday position was taken concurrently, do not lose the valid weekend selection unless the participant explicitly chose an all-or-nothing confirmation. Prefer a clear confirmation design that tells the participant exactly what was successfully assigned.
+
+
+Send an SMS confirmation when a holiday position is acquired through the adjacent-weekend prompt.
+
+
+A holiday accepted through this prompt counts as a current-year holiday commitment, but the employee remains allowed to volunteer for additional holiday positions later.
+
+
+==================================================
+OFFICIAL HOLIDAY COVERAGE
+==================================================
+
+
+Each official holiday has two positions:
+
+
+- Call 1.
+- Call 2.
+
+
+Call 2 should appear first in lists, but both may be selected whenever open.
+
+
+One participant cannot hold both Call 1 and Call 2 for the same holiday.
+
+
+A person may hold positions on multiple different holidays.
+
+
+Official coverage uses the employer-observed date confirmed by the administrator, not necessarily the holiday’s nominal calendar date.
+
+
+==================================================
+HOLIDAY VOLUNTEER PHASE
+==================================================
+
+
+The administrator starts this phase only if holiday positions remain.
+
+
+Volunteer phase rules:
+
+
+- Restart at Lottery Position 1.
+- Use the same randomized serpentine order.
+- Use the configurable Holiday active-window size, default 2.
+- Include only participants whose Holiday Volunteer response is Yes.
+- A volunteer may select exactly one holiday call position per turn.
+- A volunteer may receive later turns and voluntarily take multiple different holiday positions.
+- A volunteer may choose Pass.
+- Pass permanently removes that participant from the remainder of the volunteer phase.
+- Someone who accepted a holiday during the weekend phase remains eligible to take additional holidays.
+- Prevent one participant from taking both call positions for the same holiday.
+
+
+The phase ends when:
+
+
+- Every official holiday position is filled, or
+- Every remaining volunteer has permanently passed.
+
+
+If positions remain after all volunteers pass:
+
+
+- Mark the volunteer phase complete.
+- Mark Mandatory Holiday Phase Ready.
+- Notify the administrator.
+- Do not start the mandatory phase automatically.
+
+
+==================================================
+MANDATORY HOLIDAY PHASE
+==================================================
+
+
+The administrator explicitly starts this phase.
+
+
+New employees with no prior-year history are treated as not having worked an official holiday last year.
+
+
+Use the participant checkbox Worked Any Official Holiday Last Year. Six separate historical holiday checkboxes are not needed.
+
+
+Only participants marked Mandatory Holiday Eligible may be involuntarily included. Turning this off does not prevent voluntary holiday participation.
+
+
+Restart at Lottery Position 1 and use the same serpentine order.
+
+
+An active participant chooses from the remaining call positions. Do not randomly assign a specific position when the participant responds.
+
+
+Mandatory pool progression:
+
+
+Tier 1:
+- Participants who worked no official holiday last year.
+- Participants who currently hold no official holiday this year.
+- Give each no more than one mandatory holiday before anybody in this tier receives a second.
+
+
+Tier 2:
+- Participants who did work an official holiday last year.
+- Participants who currently hold no official holiday this year.
+- Give each no more than one during this pass before repeating anyone.
+
+
+Tier 3:
+- If positions still remain, expand to the complete Mandatory Holiday Eligible population.
+- Continue cycling in the same randomized serpentine order.
+- Additional mandatory holiday assignments may be given to participants who already hold a current-year holiday.
+- Continue until every official holiday position is filled.
+
+
+Do not halt merely because everyone already holds one current-year holiday. Continue the eligible rotation until coverage is complete.
+
+
+The same-person/same-holiday Call 1 and Call 2 restriction always remains enforced.
+
+
+==================================================
+TRANSFER/GIVEAWAY ROUND
+==================================================
+
+
+This is not an equal trade system.
+
+
+Weekend and holiday assignments have established extra compensation. Participants may give away assignments without receiving anything in return.
+
+
+The Transfer Round has two stages.
+
+
+STAGE A — OFFER COLLECTION
+
+
+The administrator begins the Transfer Round after regular vacation, weekend, and holiday selection is finished.
+
+
+Only participants marked Transfer Giver may offer assignments.
+
+
+A giver may offer:
+
+
+- One weekend assignment.
+- Several weekend assignments.
+- All weekend assignments.
+- One holiday call position.
+- Several holiday call positions.
+- All holiday call positions.
+- Any combination of weekend and holiday assignments.
+
+
+Only assignments currently owned by that giver may be offered.
+
+
+Before final submission, show a confirmation that the offer is irrevocable once submitted.
+
+
+After an offer is submitted:
+
+
+- The giver cannot withdraw it.
+- The giver cannot edit it.
+- The assignment remains legally assigned to the giver until a receiver accepts it.
+- If nobody accepts it, it remains with the original giver.
+
+
+All givers submit offers before receiver selection begins.
+
+
+Once the administrator locks the offer pool:
+
+
+- Givers cannot add more assignments.
+- Givers cannot remove assignments.
+- The available pool is fixed.
+- Begin the receiver-selection stage.
+
+
+STAGE B — RECEIVER SELECTION
+
+
+Only participants marked Transfer Receiver participate.
+
+
+Rules:
+
+
+- Restart at Lottery Position 1.
+- Use randomized serpentine order.
+- Use configurable active-window size, default 2.
+- A receiver may accept exactly one offered assignment per turn.
+- A receiver may receive future turns and accept additional assignments.
+- A receiver may choose None.
+- Choosing None permanently removes that receiver from the remainder of the transfer round.
+- First valid completed claim wins.
+- A conflicting receiver remains Active and does not lose the turn.
+- The original giver does not reconfirm after offering.
+- Receiver confirmation and reassignment occur atomically.
+
+
+Preserve original restrictions:
+
+
+- A receiver cannot acquire both Saturday and Sunday First Call positions for the same weekend.
+- A receiver cannot acquire both holiday call positions for the same holiday.
+- Consecutive-weekend warnings remain advisory.
+- Vacation-adjacency warnings remain advisory.
+- Official and soft-holiday warnings remain advisory.
+
+
+A weekend transfer moves the complete weekend responsibility attached to that First Call position.
+
+
+A holiday transfer moves the exact holiday and exact call position.
+
+
+The transfer phase ends when:
+
+
+- Every offered assignment has been accepted, or
+- Every remaining receiver has selected None.
+
+
+Any unaccepted assignment remains with its original assignee.
+
+
+Mark the round Ready to Complete and require the administrator to complete it explicitly.
+
+
+==================================================
+TRANSFER HISTORY
+==================================================
+
+
+Create a dedicated Transfer History table.
+
+
+Record at least:
+
+
+- Transfer timestamp.
+- Assignment type: Weekend or Holiday.
+- Assignment date.
+- Weekend First Call day or holiday Call position.
+- Original assignee.
+- New assignee.
+- Lottery year.
+- Transfer status or confirmation identifier if useful.
+
+
+Do not create an unnecessary general audit trail around this feature.
+
+
+==================================================
+SMS NOTIFICATIONS
+==================================================
+
+
+Use ordinary Twilio SMS only.
+
+
+Do not implement WhatsApp.
+
+
+Required notification behavior:
+
+
+1. Immediate SMS when a participant newly enters an Active window.
+2. One participant reminder 360 minutes after the original entry notification, if still Active.
+3. One administrator nonresponse alert 720 minutes after the original entry notification, if still Active.
+4. No automatically recurring reminders after the administrator alert.
+5. Administrator can manually resend a participant notification.
+6. Delays are configurable in Admin Options.
+7. Send confirmation when a participant receives a holiday through the adjacent-weekend prompt.
+8. Preserve other useful existing SMS confirmations unless they conflict with these requirements.
+
+
+The 720-minute timer runs from the original Active-window notification, not from the reminder.
+
+
+Ensure notifications are deduplicated so refreshes, reconciliation, triggers, or repeated queue calculations do not resend the immediate message incorrectly.
+
+
+==================================================
+TWILIO SETTINGS AND CREDENTIALS
+==================================================
+
+
+This project intentionally stores Twilio settings and credentials in the protected Admin Options sheet rather than Apps Script Properties.
+
+
+Update the existing admin instructions accordingly.
+
+
+This is an intentional product decision. Do not move the credentials back to Apps Script Properties.
+
+
+Required safeguards:
+
+
+- Never send the authentication token to participant-facing browser JavaScript.
+- Never return the token in participant API responses.
+- Never include credentials in SMS errors.
+- Never include credentials in logs.
+- Never include credentials in status messages.
+- Never include credentials in Transfer History.
+- Mask the token in the web-based administrator interface after saving.
+- Clearly label and protect the credential cells.
+- Display a warning explaining that protected or hidden spreadsheet cells are not secret from Google Sheet editors and any editor may still view or copy the credentials.
+- Do not commit actual Twilio credentials to GitHub.
+- Tests and documentation must use placeholders only.
+
+
+All Twilio API operations must remain server-side.
+
+
+==================================================
+PARTICIPANT AND ADMIN USER EXPERIENCE
+==================================================
+
+
+Keep the participant interface modern, clean, mobile-friendly, and understandable without technical knowledge.
+
+
+Participant dashboard should clearly show:
+
+
+- Current lottery year.
+- Current phase.
+- Current round and direction when applicable.
+- All currently Active participants.
+- Whether the logged-in participant is Active.
+- Their selected vacation weeks.
+- Their weekend assignments.
+- Their holiday assignments.
+- Their transfer offers and received assignments.
+- Available choices for the current phase.
+- Relevant nonblocking warnings.
+- Rules & Tips access.
+
+
+Do not expose:
+
+
+- PINs.
+- Twilio credentials.
+- Administrator-only phone numbers or settings.
+- Internal spreadsheet row numbers.
+- Raw internal status codes.
+
+
+Admin interface should clearly show:
+
+
+- Current setup state.
+- Current phase.
+- Readiness to advance.
+- Active-window members.
+- Phase completion statistics.
+- Unresponsive participants.
+- Remaining vacation capacity.
+- Remaining weekend positions.
+- Remaining holiday call positions.
+- Transfer-offer status.
+- Exact validation problems.
+- Manual notification controls.
+- Refresh/Reconcile From Sheet.
+- Clearly labeled phase-start buttons.
+
+
+Destructive or consequential admin actions must use clear confirmation text.
+
+
+==================================================
+SCHEMA AND MIGRATION
+==================================================
+
+
+Extend the existing sheets where practical instead of discarding them.
+
+
+Create the additional sheets or structured sections needed for:
+
+
+- Admin Options.
+- Rules & Tips.
+- Weekend Coverage.
+- Holiday Coverage.
+- Soft Holiday Warnings.
+- Transfer Offers.
+- Transfer History.
+- Expanded Config/Phase State.
+
+
+Keep existing sheet names and headers compatible whenever reasonably possible.
+
+
+Implement an idempotent setup/migration function that:
+
+
+- Adds missing sheets.
+- Adds missing columns.
+- Adds checkboxes and validation.
+- Adds default configuration values.
+- Preserves existing participant names, PINs, phone numbers, vacation assignments, colors, and current working data.
+- Does not clear populated sheets.
+- Can be run more than once safely.
+- Reports what it added or changed.
+- Detects incompatible schema problems and reports them rather than guessing destructively.
+
+
+Use header-based column lookup or similarly durable schema handling wherever possible. Avoid spreading fragile hard-coded cell coordinates throughout the system.
+
+
+Use batch spreadsheet reads/writes where practical to remain within Apps Script quotas.
+
+
+Follow the current repository’s file organization, but split large concerns into maintainable modules where the repository structure permits it. Avoid turning one file into an unreviewable monolith.
+
+
+==================================================
+VALIDATION AND FAILURE BEHAVIOR
+==================================================
+
+
+All participant submissions must be validated server-side.
+
+
+Never trust hidden browser fields or stale client availability.
+
+
+Return clear, participant-friendly errors for:
+
+
+- Not Active.
+- Phase not started.
+- Rules not acknowledged.
+- Position already taken.
+- Vacation target reached.
+- Vacation week full.
+- Invalid Prime/non-Prime combination.
+- Prior-year Spring Break or Christmas restriction.
+- Weekend maximum reached.
+- Same participant attempting both weekend positions.
+- Same participant attempting both holiday calls.
+- Participant not enrolled in volunteer phase.
+- Participant permanently passed.
+- Participant not eligible for mandatory phase.
+- Participant not marked as transfer receiver.
+- Transfer item no longer available.
+- Receiver previously selected None.
+- Setup or schema conflict.
+
+
+Unexpected failures must not partially advance a turn or leave half-written assignments.
+
+
+==================================================
+REQUIRED TEST COVERAGE
+==================================================
+
+
+Preserve all existing tests and add comprehensive automated tests.
+
+
+At minimum test:
+
+
+1. Dynamic rosters with different participant counts.
+2. Seniority Round 1 ordering.
+3. Automatic transition to randomized Round 2.
+4. Same yearly randomized order across all later phases.
+5. Each phase restarting at Lottery Position 1.
+6. Serpentine movement in both directions.
+7. Multi-person rolling windows.
+8. Endpoint reversal waiting for the current directional window to finish.
+9. No duplicate participant in the Active window.
+10. Prime selection standing alone.
+11. One versus two Non-Prime selections.
+12. Double Non-Prime selection forfeiting the next turn.
+13. Vacation global target and participant override.
+14. Vacation global capacity and per-week override.
+15. Spring Break restriction through Round 3 and eligibility in Round 4.
+16. Christmas restriction through Round 3 and eligibility in Round 4.
+17. Exact-break-only prior-year restriction.
+18. Administrator ending vacation early.
+19. Weekend phase continuing until positions are filled.
+20. Weekend individual maximum.
+21. All weekend caps reached with openings, producing administrator alert.
+22. Same person blocked from both positions in one weekend.
+23. Consecutive-weekend warning.
+24. Four-date vacation adjacency warning.
+25. Official and soft-holiday ±3-day warnings.
+26. Holiday reservation during weekend selection.
+27. Call 2 displayed before Call 1 while both remain selectable.
+28. Same person blocked from both holiday calls.
+29. Volunteer Yes/No enrollment.
+30. One voluntary holiday per turn.
+31. Volunteer permanent Pass.
+32. Volunteer phase ending and Mandatory Ready state.
+33. Mandatory Tier 1 ordering.
+34. Mandatory Tier 2 expansion.
+35. Mandatory Tier 3 repeat assignments until filled.
+36. Mandatory participation override.
+37. Adjacent-weekend holiday volunteer remaining eligible later.
+38. All holidays filled before volunteer phase, allowing phase skip.
+39. Irrevocable transfer offers.
+40. Transfer pool locking.
+41. Givers blocked from adding after locking.
+42. Receivers accepting one item per turn.
+43. Receiver None permanently removing them.
+44. Unclaimed transfers staying with original assignees.
+45. Weekend transfer moving full attached responsibility.
+46. Transfer restrictions for duplicate weekend and holiday positions.
+47. Transfer History accuracy.
+48. First-valid-submission-wins concurrency for every assignment type.
+49. Losing concurrent submission remaining Active.
+50. Immediate SMS deduplication.
+51. Reminder at configured delay.
+52. Admin alert measured from original notification.
+53. No recurring automatic notifications after admin alert.
+54. Twilio token absent from participant responses and logs.
+55. Setup preflight exact blocker messages.
+56. Auto-Fill/Randomize typed-year confirmation.
+57. Setup confirmation locking.
+58. Refresh/Reconcile From Sheet after direct edits.
+59. Migration preserving existing populated data.
+60. Migration remaining safe when run repeatedly.
+
+
+Include tests for failures as well as successful paths.
+
+
+==================================================
+DOCUMENTATION
+==================================================
+
+
+Update administrator documentation to explain:
+
+
+- Annual setup from an empty workbook.
+- Auto-Fill/Randomize.
+- Setup review and confirmation.
+- Participant-level overrides.
+- Rules acknowledgment.
+- Every phase and its start button.
+- Serpentine order.
+- Active windows.
+- Prime rules.
+- Prior-year break checkboxes.
+- Weekend responsibilities.
+- Holiday volunteer and mandatory mechanics.
+- Transfer offer and receiver mechanics.
+- SMS timing.
+- Manual reminder resend.
+- Refresh/Reconcile From Sheet.
+- Direct spreadsheet corrections.
+- Twilio credentials on the Admin Options tab.
+- The warning that every Sheet editor can access those credentials.
+- Migration from the current workbook.
+- Recovery from common validation failures.
+- How to deploy the updated Apps Script web app.
+
+
+Do not retain outdated documentation claiming that Twilio credentials must be stored only in Apps Script Properties.
+
+
+==================================================
+DELIVERY REQUIREMENTS
+==================================================
+
+
+Submit a pull request containing the complete implementation.
+
+
+In the pull-request description include:
+
+
+1. High-level architecture.
+2. Files changed.
+3. New and modified spreadsheet tabs.
+4. New columns and configuration values.
+5. Migration/setup instructions.
+6. Deployment instructions.
+7. Participant workflow.
+8. Administrator workflow.
+9. Phase-state behavior.
+10. Notification behavior.
+11. Twilio credential handling.
+12. Tests run and exact results.
+13. Any assumptions that were necessary.
+14. Screenshots or clear descriptions of important new participant and admin screens.
+15. Manual acceptance-test checklist.
+
+
+Do not claim completion unless:
+
+
+- Existing vacation functionality still works.
+- New phases work end to end.
+- Current tests pass.
+- New tests pass.
+- The migration preserves existing data.
+- Concurrent selections are protected.
+- Participant-facing code cannot access the Twilio token.
+- The administrator can run the full annual workflow without editing source code.
+
+
+
+
+#6 Summary Prompt Answers #3
+
+
+Thanks. Your interpretations are on the right track. Please use the following decisions.
+
+
+1. Phases and durable phase state
+
+
+Yes, add an explicit durable phase value in Config rather than continuing to infer the workflow from participant statuses.
+
+
+A structure along these lines is appropriate:
+
+
+- SETUP_EMPTY
+- SETUP_REVIEW
+- SETUP_CONFIRMED
+- VACATION_SENIORITY
+- VACATION_RANDOM
+- WEEKEND
+- HOLIDAY_VOLUNTEER
+- HOLIDAY_MANDATORY
+- TRANSFER_OFFER_COLLECTION
+- TRANSFER_RECEIVER
+- COMPLETE
+
+
+The exact internal names may differ, but they should be clear and stable.
+
+
+Keep CurrentRound for vacation-round numbering because it is still needed for:
+
+
+- Round 1 seniority behavior.
+- Round 2 and later randomized behavior.
+- Spring Break and Christmas restrictions through Round 3.
+
+
+Also retain durable fields for the current serpentine direction and any other queue state needed to reconstruct the Active window after a reload. The spreadsheet must remain the source of truth.
+
+
+Phase readiness should be tracked separately from the current phase where helpful. For example, finishing the weekend phase may set Holiday Volunteer as ready, but the current phase should not change until the administrator explicitly starts it.
+
+
+2. Vacation-week auto-generation boundary
+
+
+Vacation weeks are Monday-through-Friday workweeks and are identified by their Monday start date.
+
+
+For target year Y:
+
+
+- Generate the Monday on or before January 1 of year Y.
+- Continue every seven days.
+- Include the Monday on or before December 31 of year Y.
+- Each generated record represents that Monday-through-Friday vacation workweek.
+
+
+This intentionally allows the first generated week to begin in the previous calendar year when January 1 falls after Monday, and it allows the final workweek to extend into the next year.
+
+
+The purpose is to cover every Monday-through-Friday workweek that contains at least one weekday in the selected lottery year. Depending on the calendar, this can generate 52 or 53 week records.
+
+
+The administrator must review and confirm the generated boundary dates before beginning Round 1.
+
+
+Weekend generation is separate and should likewise allow the reviewed New Year overlap already discussed.
+
+
+3. Spring Break and Christmas designation
+
+
+Do not attempt to determine Spring Break from a universal date rule. Its timing is not consistent enough.
+
+
+After Auto-Fill/Randomize, the administrator must explicitly designate:
+
+
+- The Spring Break vacation week.
+- The Christmas vacation week.
+
+
+Use a clear field or dropdown on the Week Availability data, separate from the ordinary Prime/Non-Prime classification. For example, a Special Week field with values such as:
+
+
+- None
+- Spring Break
+- Christmas
+
+
+Prime/Non-Prime classification and Special Week designation are related but should not be the same field.
+
+
+Auto-fill may suggest the Christmas week based on the generated workweek containing Christmas, but the administrator must be able to change and confirm it.
+
+
+Spring Break should be selected explicitly by the administrator during setup review.
+
+
+The prior-year restrictions apply to the administrator-confirmed Special Week designation, not merely any week classified Prime.
+
+
+4. Vacation-week and weekend warning meaning
+
+
+Vacation selections represent Monday through Friday.
+
+
+The usual nine-day period away from work is:
+
+
+- Preceding Saturday
+- Preceding Sunday
+- Monday through Friday vacation
+- Following Saturday
+- Following Sunday
+
+
+Therefore, yes, the weekend warning should trigger if that same participant attempts to select First Call for any of these four dates:
+
+
+- Saturday immediately before the vacation week.
+- Sunday immediately before the vacation week.
+- Saturday immediately after the vacation week.
+- Sunday immediately after the vacation week.
+
+
+The warning is advisory only and does not prevent the selection.
+
+
+5. Serpentine reversal
+
+
+Yes, use the strict boundary behavior described.
+
+
+With an Active window containing participants 19, 20, and 21 at the bottom of the order:
+
+
+- All three belong to the final descending-direction window.
+- If participant 21 submits first, participant 21 waits.
+- Do not immediately give participant 21 the first ascending-direction turn.
+- Participants 19 and 20 must also finish their current descending-direction turns.
+- Only after the entire directional window is complete should the system close it and open the new ascending-direction window.
+- The new window may then begin with 21, 20, and 19, subject to normal eligibility and skip rules.
+
+
+The endpoint participant must never appear twice in the Active window simultaneously.
+
+
+Treat each directional window at the reversal as a complete unit rather than continuously mixing the old and new directions.
+
+
+6. Transfer offers are individual items, not bundles
+
+
+A giver may choose several assignments in one offer-submission screen, but each assignment becomes a separate individual item in the common transfer pool.
+
+
+Example:
+
+
+A giver offers:
+
+
+- Weekend position A.
+- Weekend position B.
+- Thanksgiving Call 2.
+
+
+These become three independently selectable transfer items.
+
+
+A receiver may choose any one available item on their turn. No receiver is required to accept all assignments offered by one giver.
+
+
+The giver’s final confirmation may submit all selected offers together, but after confirmation:
+
+
+- Every offered assignment is individually listed in the pool.
+- Every offer is irrevocable.
+- Each remains assigned to the original giver until individually accepted.
+- An accepted item is removed from the pool.
+- Unaccepted items remain with the original giver when the transfer round ends.
+
+
+Receivers continue to select no more than one individual item per turn.
+
+
+#7 Final Summary Prompt
+
+
+Approved. Proceed with implementation on a feature branch and submit the completed work as a pull request.
+
+
+Before starting, incorporate these final execution notes into the plan. They clarify acceptance criteria already established and do not require additional product questions.
+
+
+1. Participant controls
+
+
+Participant Config must include all exact controls previously specified:
+
+
+- Active for Year
+- Vacation Phase Enabled
+- Vacation Week Target Override
+- Weekend Phase Enabled
+- Weekend Assignment Maximum
+- Holiday Volunteer
+- Mandatory Holiday Eligible
+- Transfer Giver
+- Transfer Receiver
+- Had Spring Break Last Year
+- Had Christmas Week Last Year
+- Worked Any Official Holiday Last Year
+- Rules Acknowledged Year
+
+
+A blank Vacation Week Target Override inherits the global target.
+
+
+A blank Weekend Assignment Maximum means uncapped participation for that employee until weekend coverage is complete.
+
+
+If every enabled participant reaches an individual weekend maximum while positions remain, halt advancement and notify the administrator.
+
+
+2. Rules & Tips presentation
+
+
+In addition to the acknowledgment gateway, implement:
+
+
+- A permanent Rules & Tips button in the participant header.
+- Context-sensitive reminders on relevant selection screens.
+- Spreadsheet-editable Rules & Tips content.
+- Spreadsheet-editable spouse-reminder text.
+
+
+Exclude the old inappropriate holiday descriptions.
+
+
+3. Vacation phase completion
+
+
+The administrator may manually begin the Weekend Phase before every employee reaches the vacation target.
+
+
+When this happens:
+
+
+- Accept and freeze the unequal vacation totals.
+- Do not continue participant vacation selections in parallel with the Weekend Phase.
+- Permit the administrator to make later direct spreadsheet corrections.
+- Reconciliation must recognize those corrections.
+
+
+4. Weekend restrictions and responsibility
+
+
+Explicitly enforce:
+
+
+- One weekend First Call position per participant turn.
+- One participant cannot hold both Saturday First Call and Sunday First Call for the same weekend.
+- Saturday First Call implies Sunday Second Call.
+- Sunday First Call implies Saturday Second Call.
+- A later transfer moves the complete attached weekend responsibility.
+
+
+Consecutive-weekend, vacation-adjacency, official-holiday, and soft-holiday conditions are warnings only.
+
+
+5. Nearby holiday selection details
+
+
+During the weekend confirmation flow:
+
+
+- Show the official holiday name and employer-observed date.
+- Show Call 2 before Call 1.
+- Keep both selectable when both are available.
+- Include a Decline option.
+- Prevent the participant from holding both call positions for the same holiday.
+- A holiday accepted through this flow counts as a current-year commitment.
+- The participant remains eligible to volunteer for other holidays later.
+
+
+Use the exact concurrency outcome already established:
+
+
+- Weekend conflict: write nothing and keep the participant Active.
+- Holiday-only conflict: save the valid weekend, reject only the holiday, and clearly report both outcomes.
+- Both available: save both.
+- Holiday declined: save only the weekend.
+
+
+6. Holiday phases
+
+
+Holiday Volunteer Phase:
+
+
+- Include only Holiday Volunteer = Yes participants.
+- One call position per turn.
+- Multiple holidays may be selected over later cycles.
+- Pass permanently removes the participant from the volunteer phase.
+- If every volunteer passes with openings remaining, mark Mandatory Holiday Ready and notify the administrator.
+- Do not start the mandatory phase automatically.
+- If all holiday positions were already filled during weekend selection, skip empty holiday phases.
+
+
+Mandatory Holiday Phase:
+
+
+- No Pass option.
+- No automatic assignment or skip for nonresponse.
+- Apply configured reminder and administrator-alert behavior.
+- Tier 1 and Tier 2 initially give each eligible participant no more than one mandatory assignment during that tier’s first pass.
+- Tier 3 continues cycling through the complete mandatory-eligible population until all holiday positions are filled.
+- Tier 3 may give additional assignments to people who already hold a current-year holiday.
+- Never stop merely because every eligible person already has one holiday.
+- The same-person/same-holiday two-call restriction remains enforced.
+
+
+7. Transfer completion behavior
+
+
+Offer Collection:
+
+
+- Each selected assignment becomes an independent pool item.
+- Offers are irrevocable once confirmed.
+- The giver cannot withdraw or edit an offer.
+- The assignment remains with the giver until accepted.
+- Once the administrator locks the pool, no new offers or removals are permitted.
+
+
+Receiver Selection:
+
+
+- One individual item per participant turn.
+- None permanently removes the receiver.
+- A receiver may accept additional assignments in later cycles.
+- First valid claim wins.
+- A losing concurrent claimant remains Active and does not lose the turn.
+- No giver reconfirmation is required.
+- Unaccepted assignments remain with their original owners.
+- Require the administrator to explicitly complete the Transfer Round.
+
+
+Preserve all weekend and holiday duplicate-position restrictions during transfers.
+
+
+8. Reconciliation behavior
+
+
+Refresh/Reconcile From Sheet must:
+
+
+- Recognize manually typed vacation, weekend, and holiday assignments.
+- Recalculate participant totals, targets, maximums, capacities, and phase readiness.
+- Rebuild or validate Active windows.
+- Recognize when a manual assignment satisfies an outstanding turn.
+- Report unknown participant names.
+- Report over-capacity weeks.
+- Report duplicate weekend positions.
+- Report prohibited same-holiday call combinations.
+- Report transfer inconsistencies.
+- Never silently delete or overwrite an administrator edit.
+
+
+Participant submissions must reread authoritative sheet values even when Reconciliation Required is true so a direct administrator edit is never overwritten.
+
+
+9. Notification acceptance criteria
+
+
+Implement exactly:
+
+
+- Immediate SMS when newly entering an Active window.
+- One participant reminder at the configured delay, default 360 minutes from original entry.
+- One administrator alert at the configured delay, default 720 minutes from original entry.
+- Administrator timing is measured from the original Active entry, not from the reminder.
+- No additional automatic reminders after the administrator alert.
+- Manual administrator resend.
+- Deduplication across refreshes, triggers, reconciliation, and repeated queue calculations.
+- Holiday confirmation SMS after successful nearby-holiday acceptance.
+
+
+10. Testing scope
+
+
+Step 17 must implement the full test matrix from the original request, not only the abbreviated examples in the plan.
+
+
+Create explicit tests covering all major requirements, including:
+
+
+- Every phase transition.
+- Phase restart at Lottery Position 1.
+- Strict directional-window completion at serpentine endpoints.
+- Dynamic participant counts.
+- Per-person participation controls and overrides.
+- Early vacation-phase completion.
+- Weekend-cap exhaustion.
+- Same-weekend and same-holiday restrictions.
+- All four vacation-adjacency warning dates.
+- Official and soft-holiday proximity.
+- Nearby-holiday partial concurrency success.
+- Holiday phases being skipped when already complete.
+- Volunteer permanent Pass.
+- All three mandatory tiers, including repeated Tier 3 assignments.
+- Irrevocable and locked transfer pools.
+- Unclaimed transfer behavior.
+- Direct-edit reconciliation.
+- Locking and first-valid-submission-wins behavior for every assignment type.
+- SMS timing and deduplication.
+- Twilio token non-exposure.
+- Exact Auto-Fill blocker reporting.
+- Idempotent, non-destructive schema migration.
+
+
+List every test executed and its exact result in the pull-request description.
+
+
+11. Delivery discipline
+
+
+Use incremental commits on the feature branch.
+
+
+Because this is a large change, keep the pull request as a draft until:
+
+
+- The complete implementation is present.
+- Existing tests pass.
+- New tests pass.
+- Migration has been verified against populated existing data.
+- Participant-facing code cannot access Twilio credentials.
+- End-to-end manual acceptance testing is documented.
+
+
+Do not divide required functionality into unspecified future work or submit scaffolding as completion.
+
+
+Proceed without further product questions unless an actual Apps Script technical impossibility or a direct conflict in these requirements is discovered.
