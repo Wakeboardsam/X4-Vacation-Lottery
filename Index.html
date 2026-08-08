@@ -249,6 +249,8 @@
     </div>
 
     <!-- PARTICIPANT SHELL -->
+
+    <!-- PARTICIPANT SHELL -->
     <div class="card hidden" id="viewParticipantShell">
       <h2>Welcome, <span id="participantNameDisplay"></span></h2>
       <p style="margin-bottom: 1rem; color: var(--text-muted);">Current Lottery Status:</p>
@@ -263,6 +265,34 @@
         </tbody>
       </table>
 
+      <!-- Vacation Selection Area -->
+      <div id="vacationSelectionArea" class="hidden" style="margin-top: 1.5rem; border-top: 1px solid var(--border-color); padding-top: 1.5rem;">
+          <h3 style="margin-bottom: 0.5rem;">Vacation Selection</h3>
+
+          <div style="background-color: var(--secondary-color); padding: 1rem; border-radius: 4px; margin-bottom: 1rem;">
+              <div style="font-weight: bold; margin-bottom: 0.5rem;" id="pVacationStatus">You are ACTIVE. It is your turn.</div>
+              <div id="pVacationProgress">0 of 9 weeks selected</div>
+              <div id="pVacationActiveList" style="margin-top: 0.5rem; font-size: 0.875rem; color: var(--text-muted);"></div>
+          </div>
+
+          <!-- Selection Controls -->
+          <div id="vacationControls" class="hidden">
+              <div style="display: flex; gap: 10px; margin-bottom: 1rem;">
+                  <button type="button" id="btnModePrime" onclick="setVacationMode('Prime')" style="flex: 1; padding: 0.5rem;">Prime — select exactly 1</button>
+                  <button type="button" id="btnModeNonPrime" onclick="setVacationMode('Non-Prime')" style="flex: 1; padding: 0.5rem;">Non-Prime — select 1 or 2</button>
+              </div>
+
+              <div id="vacationModeHelp" style="font-size: 0.875rem; color: var(--text-muted); margin-bottom: 1rem; font-weight: bold;"></div>
+              <div id="vacationSkipWarning" class="alert alert-warning hidden" style="margin-bottom: 1rem;">Selecting two weeks will skip your next scheduled turn.</div>
+
+              <div id="vacationWeeksList" style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 1rem;">
+                  <!-- Dynamically populated cards -->
+              </div>
+
+              <button type="button" id="btnSubmitVacation" onclick="confirmSubmitVacation()" class="hidden" style="width: 100%; background-color: var(--primary-color);">Submit</button>
+          </div>
+      </div>
+
       <p style="margin-top: 1.5rem; font-size: 0.875rem; color: var(--text-muted);">
         Additional participant features will be enabled in future modules.
       </p>
@@ -271,6 +301,62 @@
     <!-- ADMIN DASHBOARD -->
     <div class="card hidden" id="viewAdminDashboard">
       <h2>Admin Dashboard</h2>
+
+      <div style="margin-bottom: 1.5rem; padding-bottom: 1.5rem; border-bottom: 1px solid var(--border-color);">
+        <h3 style="font-size: 1.1rem; margin-bottom: 0.5rem;">Vacation Controls</h3>
+        <p style="font-size: 0.875rem; color: var(--text-muted); margin-bottom: 1rem;">
+          Control the vacation selection phase.
+        </p>
+        <div style="display: flex; gap: 10px;">
+            <button type="button" onclick="handleBeginVacation()" style="flex: 1; background-color: var(--primary-color);">Start Vacation Phase</button>
+            <button type="button" onclick="handleEndVacation()" style="flex: 1; background-color: var(--danger-color, #dc3545);">End Vacation Early</button>
+        </div>
+      </div>
+
+      <div style="margin-bottom: 1.5rem; padding-bottom: 1.5rem; border-bottom: 1px solid var(--border-color);">
+        <h3 style="font-size: 1.1rem; margin-bottom: 0.5rem; display: flex; justify-content: space-between; align-items: center;">
+          Vacation Statistics
+          <button type="button" class="btn-small btn-secondary" onclick="loadAdminState()">Refresh Stats</button>
+        </h3>
+
+        <div style="background-color: var(--card-bg); border: 1px solid var(--border-color); padding: 1rem; border-radius: 4px; overflow-x: auto;">
+          <h4 style="font-size: 1rem; margin-bottom: 0.5rem;">Currently Active Participants</h4>
+          <div id="adminActiveParticipants" style="font-size: 0.875rem; color: var(--text-muted); margin-bottom: 1rem;">
+            Loading...
+          </div>
+
+          <h4 style="font-size: 1rem; margin-bottom: 0.5rem;">Participant Progress</h4>
+          <table class="state-table" id="adminParticipantProgressTable">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Selected Weeks</th>
+                <th>Target</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td colspan="4">Loading...</td></tr>
+            </tbody>
+          </table>
+
+          <h4 style="font-size: 1rem; margin-top: 1rem; margin-bottom: 0.5rem;">Remaining Week Capacity</h4>
+          <div style="max-height: 200px; overflow-y: auto;">
+            <table class="state-table" id="adminCapacityTable">
+              <thead>
+                <tr>
+                  <th>Week ID</th>
+                  <th>Type</th>
+                  <th>Remaining Capacity</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td colspan="3">Loading...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
 
       <div style="margin-bottom: 1.5rem; padding-bottom: 1.5rem; border-bottom: 1px solid var(--border-color);">
         <h3 style="font-size: 1.1rem; margin-bottom: 0.5rem;">Schema Management</h3>
@@ -484,6 +570,12 @@
             .apiGetAdminState(token);
     }
 
+
+    // --- State variables for Vacation Selection ---
+    let currentVacationData = null;
+    let vacationMode = null; // 'Prime' or 'Non-Prime'
+    let selectedWeeks = new Set();
+
     // --- Views ---
     function renderParticipantShell(proj) {
         document.getElementById('participantNameDisplay').textContent = proj.name;
@@ -491,7 +583,254 @@
         document.getElementById('pStatePhase').textContent = proj.currentPhase || 'N/A';
         document.getElementById('pStateActive').textContent = proj.isActive ? 'Active' : 'Inactive';
         showView('viewParticipantShell');
+
+        if (proj.isActive) {
+            loadParticipantVacationData();
+        } else {
+            document.getElementById('vacationSelectionArea').classList.add('hidden');
+        }
     }
+
+    function loadParticipantVacationData() {
+        if (!currentToken || currentUserType !== 'participant') return;
+
+        document.getElementById('vacationSelectionArea').classList.remove('hidden');
+        document.getElementById('vacationControls').classList.add('hidden');
+        document.getElementById('pVacationStatus').textContent = "Loading vacation data...";
+
+        google.script.run
+            .withSuccessHandler(res => {
+                if (res.ok) {
+                    currentVacationData = res.data;
+                    renderVacationData();
+                } else {
+                    showAlert(res.message, 'danger');
+                }
+            })
+            .withFailureHandler(err => {
+                showAlert('Network error fetching vacation data.');
+            })
+            .apiGetParticipantVacationData(currentToken);
+    }
+
+    function renderVacationData() {
+        if (!currentVacationData) return;
+
+        const { turn, roster, weeks, config } = currentVacationData;
+
+        let assignedCount = 0;
+        weeks.forEach(w => {
+            if (w.assignedToMe) assignedCount++;
+        });
+
+        document.getElementById('pStatePhase').textContent = config.phase + " (Round " + config.round + ", " + config.direction + ")";
+        document.getElementById('pVacationProgress').textContent = assignedCount + " of " + roster.target + " weeks selected";
+
+        // Find everyone who is currently active in the window
+        let activeListStr = "";
+
+        const controls = document.getElementById('vacationControls');
+        const status = document.getElementById('pVacationStatus');
+
+        if (turn) {
+            status.textContent = "You are ACTIVE. It is your turn.";
+            status.style.color = "var(--primary-color)";
+
+            if (assignedCount >= roster.target) {
+                controls.classList.add('hidden');
+                status.textContent = "You have reached your target of " + roster.target + " weeks.";
+                status.style.color = "inherit";
+            } else {
+                controls.classList.remove('hidden');
+                setVacationMode('Prime'); // Default mode
+            }
+        } else {
+            status.textContent = "You are not currently active for selection.";
+            status.style.color = "inherit";
+            controls.classList.add('hidden');
+        }
+    }
+
+    function setVacationMode(mode) {
+        vacationMode = mode;
+        selectedWeeks.clear();
+
+        const btnPrime = document.getElementById('btnModePrime');
+        const btnNonPrime = document.getElementById('btnModeNonPrime');
+        const help = document.getElementById('vacationModeHelp');
+
+        if (mode === 'Prime') {
+            btnPrime.style.backgroundColor = 'var(--primary-color)';
+            btnPrime.style.color = '#fff';
+            btnNonPrime.style.backgroundColor = 'var(--secondary-color)';
+            btnNonPrime.style.color = 'inherit';
+            help.textContent = 'Select exactly 1 Prime week.';
+        } else {
+            btnNonPrime.style.backgroundColor = 'var(--primary-color)';
+            btnNonPrime.style.color = '#fff';
+            btnPrime.style.backgroundColor = 'var(--secondary-color)';
+            btnPrime.style.color = 'inherit';
+            help.textContent = '0 of 2 selected';
+        }
+
+        updateVacationUI();
+    }
+
+    function toggleWeekSelection(weekId) {
+        if (vacationMode === 'Prime') {
+            selectedWeeks.clear();
+            selectedWeeks.add(weekId);
+        } else {
+            if (selectedWeeks.has(weekId)) {
+                selectedWeeks.delete(weekId);
+            } else if (selectedWeeks.size < 2) {
+                selectedWeeks.add(weekId);
+            }
+        }
+        updateVacationUI();
+    }
+
+    function updateVacationUI() {
+        const container = document.getElementById('vacationWeeksList');
+        container.innerHTML = '';
+
+        if (!currentVacationData) return;
+        const { weeks } = currentVacationData;
+
+        weeks.forEach(w => {
+            const isFull = w.assignedCount >= w.capacity;
+            const isSelectableType = w.primeType === vacationMode;
+
+            // Build card
+            const card = document.createElement('div');
+            card.style.padding = '1rem';
+            card.style.borderRadius = '4px';
+            card.style.border = '1px solid var(--border-color)';
+            card.style.display = 'flex';
+            card.style.alignItems = 'center';
+            card.style.gap = '10px';
+
+            const isSelected = selectedWeeks.has(w.weekId);
+
+            if (isSelected) {
+                card.style.borderColor = 'var(--primary-color)';
+                card.style.backgroundColor = '#f0f8ff';
+            }
+
+            let disabled = false;
+            let opacity = '1';
+
+            if (isFull || !isSelectableType || w.assignedToMe) {
+                disabled = true;
+                opacity = '0.5';
+                card.style.backgroundColor = '#f9f9f9';
+            }
+            card.style.opacity = opacity;
+
+            let inputHtml = '';
+            if (!disabled) {
+                if (vacationMode === 'Prime') {
+                    inputHtml = '<input type="radio" name="week_sel" ' + (isSelected ? 'checked' : '') + ' style="transform: scale(1.5); margin-right: 10px;">';
+                } else {
+                    inputHtml = '<input type="checkbox" ' + (isSelected ? 'checked' : '') + ' style="transform: scale(1.5); margin-right: 10px;">';
+                }
+            }
+
+            card.innerHTML = inputHtml +
+                '<div style="flex: 1;">' +
+                    '<div style="font-weight: bold; font-size: 1.1rem;">' + w.weekId + '</div>' +
+                    '<div style="font-size: 0.875rem; color: var(--text-muted);">' +
+                        w.primeType + (w.specialType !== 'None' ? ' • ' + w.specialType : '') +
+                    '</div>' +
+                '</div>' +
+                '<div style="text-align: right; font-size: 0.875rem;">' +
+                    '<div>' + (w.capacity - w.assignedCount) + ' of ' + w.capacity + ' spots remaining</div>' +
+                    (w.assignedToMe ? '<div style="color: var(--primary-color); font-weight: bold;">Assigned</div>' : '') +
+                    (isFull && !w.assignedToMe ? '<div style="color: var(--danger-color); font-weight: bold;">Full</div>' : '') +
+                '</div>';
+
+            if (!disabled) {
+                card.style.cursor = 'pointer';
+                card.onclick = (e) => {
+                    e.preventDefault();
+                    toggleWeekSelection(w.weekId);
+                };
+            }
+
+            container.appendChild(card);
+        });
+
+        // Update help text and buttons
+        const help = document.getElementById('vacationModeHelp');
+        const btnSubmit = document.getElementById('btnSubmitVacation');
+        const warn = document.getElementById('vacationSkipWarning');
+
+        if (vacationMode === 'Non-Prime') {
+            help.textContent = selectedWeeks.size + ' of 2 selected';
+
+            if (selectedWeeks.size === 2) {
+                warn.classList.remove('hidden');
+                btnSubmit.textContent = 'Submit 2 Non-Prime Weeks';
+                btnSubmit.classList.remove('hidden');
+            } else if (selectedWeeks.size === 1) {
+                warn.classList.add('hidden');
+                btnSubmit.textContent = 'Submit 1 Non-Prime Week';
+                btnSubmit.classList.remove('hidden');
+            } else {
+                warn.classList.add('hidden');
+                btnSubmit.classList.add('hidden');
+            }
+        } else {
+            warn.classList.add('hidden');
+            if (selectedWeeks.size === 1) {
+                btnSubmit.textContent = 'Submit Prime Week';
+                btnSubmit.classList.remove('hidden');
+            } else {
+                btnSubmit.classList.add('hidden');
+            }
+        }
+    }
+
+    function confirmSubmitVacation() {
+        if (!currentVacationData || !currentVacationData.turn) return;
+
+        const selArr = Array.from(selectedWeeks);
+        if (selArr.length === 0) return;
+
+        let msg = 'Submit the following week(s)?\n\n' + selArr.join('\n');
+        if (vacationMode === 'Non-Prime' && selArr.length === 2) {
+            msg += '\n\nWARNING: Selecting two Non-Prime weeks will skip your next scheduled turn.';
+        }
+
+        if (!confirm(msg)) return;
+
+        showLoading(true);
+        const btnSubmit = document.getElementById('btnSubmitVacation');
+        btnSubmit.disabled = true;
+
+        google.script.run
+            .withSuccessHandler(res => {
+                showLoading(false);
+                btnSubmit.disabled = false;
+                if (res.ok) {
+                    showAlert(res.message, 'success');
+                    selectedWeeks.clear();
+                    loadParticipantVacationData(); // Refresh UI
+                } else {
+                    showAlert(res.message, 'danger');
+                    if (res.message.includes('just selected by another participant')) {
+                         loadParticipantVacationData(); // Refresh to clear conflicts
+                    }
+                }
+            })
+            .withFailureHandler(err => {
+                showLoading(false);
+                btnSubmit.disabled = false;
+                showAlert('Network error submitting vacation.');
+            })
+            .apiSubmitVacation(currentToken, currentVacationData.turn.turnId, selArr);
+    }
+
 
 
     function handleInspectSchema() {
@@ -537,7 +876,9 @@
     }
 
 
-    function renderAdminState(stateObj) {
+    function renderAdminState(payload) {
+        const stateObj = payload.config;
+        const stats = payload.stats;
         const tbody = document.querySelector('#adminStateTable tbody');
         tbody.innerHTML = '';
 
@@ -549,19 +890,90 @@
              const td2 = document.createElement('td');
              let valDisplay = stateObj[key];
 
-             if (key === 'Current Phase') {
-                 valDisplay = getFriendlyLabel(phaseLabels, stateObj[key]) + ' (' + stateObj[key] + ')';
-             } else if (key === 'Setup State') {
-                 valDisplay = getFriendlyLabel(setupStateLabels, stateObj[key]) + ' (' + stateObj[key] + ')';
-             } else if (key === 'Phase Ready State') {
-                 valDisplay = getFriendlyLabel(readyStateLabels, stateObj[key]) + ' (' + stateObj[key] + ')';
-             }
-
              td2.textContent = valDisplay;
              tr.appendChild(td1);
              tr.appendChild(td2);
              tbody.appendChild(tr);
         }
+
+        // Render stats if available
+        if (stats) {
+            const activeDiv = document.getElementById('adminActiveParticipants');
+            if (stats.activeWindow && stats.activeWindow.length > 0) {
+                activeDiv.textContent = stats.activeWindow.join(', ');
+            } else {
+                activeDiv.textContent = 'None currently active.';
+            }
+
+            const progBody = document.querySelector('#adminParticipantProgressTable tbody');
+            progBody.innerHTML = '';
+            stats.roster.forEach(p => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = '<td>' + p.name + '</td>' +
+                               '<td>' + p.count + '</td>' +
+                               '<td>' + p.target + '</td>' +
+                               '<td style="' + (p.status === 'Complete' ? 'color: var(--success-color, #28a745);' : '') + '">' + p.status + '</td>';
+                progBody.appendChild(tr);
+            });
+
+            const capBody = document.querySelector('#adminCapacityTable tbody');
+            capBody.innerHTML = '';
+            stats.weeks.forEach(w => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = '<td>' + w.weekId + '</td>' +
+                               '<td>' + w.type + '</td>' +
+                               '<td>' + w.remaining + ' of ' + w.capacity + '</td>';
+                capBody.appendChild(tr);
+            });
+        } else {
+            document.getElementById('adminActiveParticipants').textContent = 'Phase not active.';
+            document.querySelector('#adminParticipantProgressTable tbody').innerHTML = '<tr><td colspan="4">Phase not active.</td></tr>';
+            document.querySelector('#adminCapacityTable tbody').innerHTML = '<tr><td colspan="3">Phase not active.</td></tr>';
+        }
+    }
+
+    function handleBeginVacation() {
+        if (!currentToken || currentUserType !== 'admin') return;
+        if (!confirm('Are you sure you want to start Vacation Round 1? Ensure setup is complete.')) return;
+
+        showLoading(true);
+        google.script.run
+            .withSuccessHandler(res => {
+                showLoading(false);
+                if (res.ok) {
+                    showAlert(res.message, 'success');
+                    loadAdminState();
+                } else {
+                    showAlert(res.message, 'danger');
+                }
+            })
+            .withFailureHandler(err => {
+                showLoading(false);
+                showAlert('Network error occurred.');
+            })
+            .apiBeginVacationRound1(currentToken);
+    }
+
+    function handleEndVacation() {
+        if (!currentToken || currentUserType !== 'admin') return;
+        if (!confirm('Are you sure you want to end Vacation early? This will move directly to Weekend.')) return;
+
+        showLoading(true);
+        google.script.run
+            .withSuccessHandler(res => {
+                showLoading(false);
+                if (res.ok) {
+                    showAlert(res.message, 'success');
+                    loadAdminState();
+                } else {
+                    showAlert(res.message, 'danger');
+                }
+            })
+            .withFailureHandler(err => {
+                showLoading(false);
+                showAlert('Network error occurred.');
+            })
+            .apiEndVacationEarly(currentToken);
     }
 
     function handleAdminInit() {

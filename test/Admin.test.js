@@ -26,7 +26,7 @@ test('Admin: Endpoints succeed with valid session', () => {
     // Test State
     const stateRes = getAdminState(token);
     assert.equal(stateRes.ok, true);
-    assert.ok(stateRes.data['Schema Version']);
+    assert.ok(stateRes.data.config['Schema Version']);
 });
 
 test('Security: Public API allowlist enforced', () => {
@@ -42,7 +42,11 @@ test('Security: Public API allowlist enforced', () => {
         'apiResolveParticipant',
         'apiGetAdminState',
         'apiRunAdminInit',
-        'apiInspectSchema'
+        'apiInspectSchema',
+        'apiBeginVacationRound1',
+        'apiEndVacationEarly',
+        'apiSubmitVacation',
+        'apiGetParticipantVacationData'
     ]);
 
     const codeFile = fs.readFileSync(path.join(__dirname, '../Code.gs'), 'utf8');

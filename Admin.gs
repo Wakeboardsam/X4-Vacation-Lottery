@@ -24,7 +24,71 @@ function getAdminState_(token) {
 
     try {
         const configMap = _readC();
-        return _apiR(true, configMap, 'State retrieved');
+
+        let stats = null;
+        if (configMap['Current Phase'] === 'VACATION_SENIORITY' || configMap['Current Phase'] === 'VACATION_RANDOM') {
+            const _vAvail = typeof getWeekAvailability_ === 'function' ? getWeekAvailability_ : (typeof global !== 'undefined' && global.getWeekAvailability_ ? global.getWeekAvailability_ : (require('./Vacation.gs').getWeekAvailability));
+            const _vOpts = typeof getAdminOptions_ === 'function' ? getAdminOptions_ : (typeof global !== 'undefined' && global.getAdminOptions_ ? global.getAdminOptions_ : (require('./Vacation.gs').getAdminOptions));
+            const _vRoster = typeof getRosterForVacation_ === 'function' ? getRosterForVacation_ : (typeof global !== 'undefined' && global.getRosterForVacation_ ? global.getRosterForVacation_ : (require('./Vacation.gs').getRosterForVacation));
+
+            const adminOpts = _vOpts();
+            const roster = _vRoster(configMap['Active Year'], adminOpts.target);
+            const { data, map } = _vAvail();
+
+            const weeks = [];
+            for (let r = 1; r < data.length; r++) {
+                 const row = data[r];
+                 const weekId = String(row[map['Vacation Week']] || '').trim();
+                 if (!weekId) continue;
+
+                 const capacity = row[map['Capacity Override']] !== '' ? Number(row[map['Capacity Override']]) : adminOpts.capacity;
+                 let assignedCount = 0;
+
+                 for (const key of Object.keys(map)) {
+                     if (key.startsWith('Person')) {
+                         const val = String(row[map[key]] || '').trim();
+                         if (val !== '') {
+                             assignedCount++;
+                         }
+                     }
+                 }
+
+                 weeks.push({
+                     weekId: weekId,
+                     type: row[map['Prime Classification']] || 'Non-Prime',
+                     capacity: capacity,
+                     remaining: capacity - assignedCount
+                 });
+            }
+
+            // Calculate assigned weeks per roster member
+            const rosterStats = roster.map(p => {
+                let count = 0;
+                for (let r = 1; r < data.length; r++) {
+                    for (const key of Object.keys(map)) {
+                        if (key.startsWith('Person')) {
+                            if (String(data[r][map[key]] || '').trim() === p.name) {
+                                count++;
+                            }
+                        }
+                    }
+                }
+                return {
+                    name: p.name,
+                    target: p.target,
+                    count: count,
+                    status: count >= p.target ? 'Complete' : 'Pending'
+                };
+            });
+
+            stats = {
+                activeWindow: JSON.parse(configMap['Current Active Window'] || '[]').map(t => t.name),
+                roster: rosterStats,
+                weeks: weeks
+            };
+        }
+
+        return _apiR(true, { config: configMap, stats: stats }, 'State retrieved');
     } catch(e) {
         return _apiR(false, null, `State error: ${e.message}`);
     }
@@ -43,10 +107,102 @@ function runAdminInit_(token) {
     return result;
 }
 
+function beginVacationRound1_(token) {
+    if (!requireAdmin_(token)) return _apiR(false, null, "Unauthorized");
+
+    const lock = LockService.getScriptLock();
+    if (!lock.tryLock(10000)) return _apiR(false, null, 'System busy.');
+
+    try {
+        const configMap = _readC();
+        if (configMap['Phase Ready State'] !== 'READY_VACATION_SENIORITY') {
+            return _apiR(false, null, 'Setup is not confirmed. Phase is not ready for vacation.');
+        }
+
+        if (configMap['Current Phase'] === 'VACATION_SENIORITY' || configMap['Current Phase'] === 'VACATION_RANDOM') {
+            return _apiR(false, null, 'Vacation phase is already active.');
+        }
+
+        const _vWrite = typeof writeConfigState_ === 'function' ? writeConfigState_ : (typeof global !== 'undefined' && global.writeConfigState_ ? global.writeConfigState_ : (require('./State.gs').writeConfigState));
+        const _vRoster = typeof getRosterForVacation_ === 'function' ? getRosterForVacation_ : (typeof global !== 'undefined' && global.getRosterForVacation_ ? global.getRosterForVacation_ : (require('./Vacation.gs').getRosterForVacation));
+        const _vCalcNext = typeof calculateNextQueueState_ === 'function' ? calculateNextQueueState_ : (typeof global !== 'undefined' && global.calculateNextQueueState_ ? global.calculateNextQueueState_ : (require('./QueueEngine.gs').calculateNextQueueState));
+
+        const roster = _vRoster(configMap['Active Year'], 9 /* fallback global target not strictly needed for calcNext init */);
+
+        let newState = { ...configMap, 'Current Phase': 'VACATION_SENIORITY', 'Current Vacation Round': '1' };
+
+        const queueConfig = {
+            movementMode: 'FORWARD_ONLY',
+            orderSource: 'seniority',
+            windowSize: 3,
+            action: 'INIT',
+            phase: 'VACATION_SENIORITY'
+        };
+
+        const result = _vCalcNext(newState, roster, queueConfig);
+
+        const updates = {
+            "Current Phase": "VACATION_SENIORITY",
+            "Current Vacation Round": "1",
+            "Current Active Window": JSON.stringify(result.nextState["Current Active Window"]),
+            "Current Directional Window": JSON.stringify(result.nextState["Current Directional Window"]),
+            "Current Directional Window Completed": JSON.stringify(result.nextState["Current Directional Window Completed"]),
+            "Current Queue Skip State": JSON.stringify(result.nextState["Current Queue Skip State"] || {}),
+            "Current Queue Cursor": result.nextState["Current Queue Cursor"].toString(),
+            "Current Queue Cycle": result.nextState["Current Queue Cycle"].toString(),
+            "Current Serpentine Direction": result.nextState["Current Serpentine Direction"],
+            "Active Window Generation": result.nextState["Active Window Generation"].toString()
+        };
+
+        _vWrite(updates);
+        return _apiR(true, null, 'Vacation Round 1 has been started.');
+    } catch(e) {
+        return _apiR(false, null, 'Error starting vacation round 1: ' + e.message);
+    } finally {
+        lock.releaseLock();
+    }
+}
+
+function endVacationEarly_(token) {
+    if (!requireAdmin_(token)) return _apiR(false, null, "Unauthorized");
+
+    const lock = LockService.getScriptLock();
+    if (!lock.tryLock(10000)) return _apiR(false, null, 'System busy.');
+
+    try {
+        const configMap = _readC();
+        if (configMap['Current Phase'] !== 'VACATION_SENIORITY' && configMap['Current Phase'] !== 'VACATION_RANDOM') {
+            return _apiR(false, null, 'Vacation phase is not active.');
+        }
+
+        const _vWrite = typeof writeConfigState_ === 'function' ? writeConfigState_ : (typeof global !== 'undefined' && global.writeConfigState_ ? global.writeConfigState_ : (require('./State.gs').writeConfigState));
+
+        const updates = {
+            "Current Phase": "WEEKEND",
+            "Phase Ready State": "READY_WEEKEND",
+            "Current Active Window": "[]",
+            "Current Directional Window": "[]",
+            "Current Directional Window Completed": "[]",
+            "Current Queue Cursor": "0",
+            "Current Queue Cycle": "0",
+            "Current Queue Skip State": "{}"
+        };
+
+        _vWrite(updates);
+        return _apiR(true, null, 'Vacation phase has been ended early. System is ready for Weekend phase.');
+    } catch(e) {
+        return _apiR(false, null, 'Error ending vacation early: ' + e.message);
+    } finally {
+        lock.releaseLock();
+    }
+}
+
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
         getAdminState: getAdminState_,
         runAdminInit: runAdminInit_,
-        requireAdmin_
+        requireAdmin_,
+        beginVacationRound1: beginVacationRound1_,
+        endVacationEarly: endVacationEarly_
     };
 }
