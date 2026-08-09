@@ -81,8 +81,14 @@ function getAdminState_(token) {
                 };
             });
 
+            const activeTurns = JSON.parse(configMap['Current Active Window'] || '[]');
+            const activeNames = activeTurns.map(t => {
+                const found = roster.find(r => r.participantId === t.participantId);
+                return found ? found.name : t.participantId;
+            });
+
             stats = {
-                activeWindow: JSON.parse(configMap['Current Active Window'] || '[]').map(t => t.name),
+                activeWindow: activeNames,
                 roster: rosterStats,
                 weeks: weeks
             };
@@ -126,15 +132,17 @@ function beginVacationRound1_(token) {
         const _vWrite = typeof writeConfigState_ === 'function' ? writeConfigState_ : (typeof global !== 'undefined' && global.writeConfigState_ ? global.writeConfigState_ : (require('./State.gs').writeConfigState));
         const _vRoster = typeof getRosterForVacation_ === 'function' ? getRosterForVacation_ : (typeof global !== 'undefined' && global.getRosterForVacation_ ? global.getRosterForVacation_ : (require('./Vacation.gs').getRosterForVacation));
         const _vCalcNext = typeof calculateNextQueueState_ === 'function' ? calculateNextQueueState_ : (typeof global !== 'undefined' && global.calculateNextQueueState_ ? global.calculateNextQueueState_ : (require('./QueueEngine.gs').calculateNextQueueState));
+        const _vOpts = typeof getAdminOptions_ === 'function' ? getAdminOptions_ : (typeof global !== 'undefined' && global.getAdminOptions_ ? global.getAdminOptions_ : (require('./Vacation.gs').getAdminOptions));
 
-        const roster = _vRoster(configMap['Active Year'], 9 /* fallback global target not strictly needed for calcNext init */);
+        const opts = _vOpts();
+        const roster = _vRoster(configMap['Active Year'], opts.target);
 
         let newState = { ...configMap, 'Current Phase': 'VACATION_SENIORITY', 'Current Vacation Round': '1' };
 
         const queueConfig = {
             movementMode: 'FORWARD_ONLY',
             orderSource: 'seniority',
-            windowSize: 3,
+            windowSize: opts.windowSize,
             action: 'INIT',
             phase: 'VACATION_SENIORITY'
         };
@@ -178,7 +186,6 @@ function endVacationEarly_(token) {
         const _vWrite = typeof writeConfigState_ === 'function' ? writeConfigState_ : (typeof global !== 'undefined' && global.writeConfigState_ ? global.writeConfigState_ : (require('./State.gs').writeConfigState));
 
         const updates = {
-            "Current Phase": "WEEKEND",
             "Phase Ready State": "READY_WEEKEND",
             "Current Active Window": "[]",
             "Current Directional Window": "[]",

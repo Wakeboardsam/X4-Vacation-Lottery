@@ -1,7 +1,11 @@
 // Dependencies
 const _vState = typeof readConfigState_ === 'function' ? readConfigState_ : (typeof global !== 'undefined' && global.readConfigState_ ? global.readConfigState_ : (require('./State.gs').readConfigState));
-const _vWrite = typeof writeConfigState_ === 'function' ? writeConfigState_ : (typeof global !== 'undefined' && global.writeConfigState_ ? global.writeConfigState_ : (require('./State.gs').writeConfigState));
 const _vApi = typeof apiResponse_ === 'function' ? apiResponse_ : (typeof global !== 'undefined' && global.apiResponse_ ? global.apiResponse_ : (require('./Utils.gs').apiResponse));
+
+function _vWrite(updates) {
+    const writer = typeof writeConfigState_ === 'function' ? writeConfigState_ : (typeof global !== 'undefined' && global.writeConfigState_ ? global.writeConfigState_ : (require('./State.gs').writeConfigState));
+    return writer(updates);
+}
 const _vReqAuth = typeof resolveParticipantSession_ === 'function' ? resolveParticipantSession_ : (typeof global !== 'undefined' && global.resolveParticipantSession_ ? global.resolveParticipantSession_ : (require('./Auth.gs').resolveParticipantSession));
 const _vReqAdmin = typeof requireAdmin_ === 'function' ? requireAdmin_ : (typeof global !== 'undefined' && global.requireAdmin_ ? global.requireAdmin_ : (require('./Auth.gs').requireAdmin));
 const _vHMap = typeof getHeaderMap_ === 'function' ? getHeaderMap_ : (typeof global !== 'undefined' && global.getHeaderMap_ ? global.getHeaderMap_ : (require('./Utils.gs').getHeaderMap));
@@ -11,25 +15,27 @@ const _vCalcNext = typeof calculateNextQueueState_ === 'function' ? calculateNex
 function getAdminOptions_() {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const sheet = ss.getSheetByName('Admin Options');
-    if (!sheet) return { target: 9, capacity: 4 };
+    if (!sheet) return { target: 9, capacity: 4, windowSize: 3 };
 
     const data = sheet.getDataRange().getValues();
     const map = _vHMap(data);
     let target = 9;
     let capacity = 4;
+    let windowSize = 3;
 
     if (map['Setting'] !== undefined && map['Value'] !== undefined) {
         for (let i = 1; i < data.length; i++) {
             const key = String(data[i][map['Setting']]).trim();
             if (key === 'Default Vacation Week Target') {
                 target = Number(data[i][map['Value']]) || 9;
-            }
-            if (key === 'Default Vacation Week Capacity') {
+            } else if (key === 'Default Vacation Week Capacity') {
                 capacity = Number(data[i][map['Value']]) || 4;
+            } else if (key === 'Vacation ACTIVE-window size') {
+                windowSize = Number(data[i][map['Value']]) || 3;
             }
         }
     }
-    return { target, capacity };
+    return { target, capacity, windowSize };
 }
 
 function getRosterForVacation_(activeYear, globalTarget) {
@@ -204,6 +210,9 @@ function submitVacation_(participantId, submittedTurnId, selections) {
              return _vApi(false, null, 'A Prime week must stand alone (no additional Non-Prime picks).');
         }
 
+        // Capture original week data for potential rollback
+        const originalWeekData = JSON.parse(JSON.stringify(weekData));
+
         // Passed all validation. Need to expand capacity columns if needed
         if (requiredMaxPersonCol > maxPersonColFound) {
             const missing = [];
@@ -213,18 +222,27 @@ function submitVacation_(participantId, submittedTurnId, selections) {
             if (missing.length > 0) {
                 const numCols = weekSheet.getLastColumn();
                 weekSheet.getRange(1, numCols + 1, 1, missing.length).setValues([missing]);
-                // Re-fetch headers to have correct map
-                const newHeaders = weekSheet.getRange(1, 1, 1, weekSheet.getLastColumn()).getValues()[0];
-                for (let i = 0; i < newHeaders.length; i++) {
-                    weekMap[newHeaders[i]] = i;
+
+                // Keep memory matrix aligned by appending the new headers and padding the rows
+                for (let i = 0; i < missing.length; i++) {
+                     weekMap[missing[i]] = numCols + i;
+                     originalWeekData[0].push(missing[i]); // Keep original matrix aligned in shape
                 }
+
+                for (let i = 0; i < weekData.length; i++) {
+                    for (let c = 0; c < missing.length; c++) {
+                         weekData[i].push("");
+                         if (i > 0) originalWeekData[i].push("");
+                    }
+                }
+                weekData[0] = Object.keys(weekMap).sort((a,b) => weekMap[a] - weekMap[b]);
             }
         }
 
-        // Write assignments
+        // Make assignments in memory
         for (const upd of selectedRowUpdates) {
              const colName = `Person${upd.colToUpdate}`;
-             weekSheet.getRange(upd.rowIndex + 1, weekMap[colName] + 1).setValue(pRoster.name);
+             weekData[upd.rowIndex][weekMap[colName]] = pRoster.name;
         }
 
         // Determine Next Queue State
@@ -239,7 +257,7 @@ function submitVacation_(participantId, submittedTurnId, selections) {
         const queueConfig = {
             movementMode: config['Current Phase'] === 'VACATION_SENIORITY' ? 'FORWARD_ONLY' : 'SERPENTINE',
             orderSource: config['Current Phase'] === 'VACATION_SENIORITY' ? 'seniority' : 'lottery',
-            windowSize: 3, // Match queue engine
+            windowSize: adminOpts.windowSize,
             action: 'COMPLETE',
             completedTurnId: submittedTurnId,
             phase: config['Current Phase']
@@ -311,9 +329,10 @@ function submitVacation_(participantId, submittedTurnId, selections) {
                  const p2Config = {
                     movementMode: 'SERPENTINE',
                     orderSource: 'lottery',
-                    windowSize: 3,
+                    windowSize: adminOpts.windowSize,
                     action: 'INIT',
-                    phase: 'VACATION_RANDOM'
+                    phase: 'VACATION_RANDOM',
+                    preserveSkips: true
                  };
                  // Set all dispositions strictly to ELIGIBLE to re-initialize clean unless they completed phase
                  for (let r of roster) {
@@ -329,7 +348,6 @@ function submitVacation_(participantId, submittedTurnId, selections) {
 
             } else {
                  // Fully complete
-                 nextState['Current Phase'] = 'WEEKEND';
                  nextState['Phase Ready State'] = 'READY_WEEKEND';
                  nextState["Current Active Window"] = [];
                  nextState["Current Directional Window"] = [];
@@ -356,13 +374,28 @@ function submitVacation_(participantId, submittedTurnId, selections) {
             "Active Window Generation": nextState["Active Window Generation"].toString()
         };
 
-        _vWrite(updates);
+        // Atomic writes:
+        // Write week data matrix all at once
+        weekSheet.getRange(1, 1, weekData.length, weekData[0].length).setValues(weekData);
+
+        // Then write config
+        try {
+            _vWrite(updates);
+        } catch(writeErr) {
+            // Rollback week assignments if config write fails
+            weekSheet.getRange(1, 1, originalWeekData.length, originalWeekData[0].length).setValues(originalWeekData);
+            throw new Error('Config save failed. Rollback applied. ' + writeErr.message);
+        }
+
         return _vApi(true, {
              targetReached: newSelectionsTotal >= pRoster.target,
              queueComplete: queueComplete && config['Current Phase'] !== 'VACATION_SENIORITY'
         }, 'Vacation weeks successfully selected.');
 
     } catch(e) {
+        if (e.message.includes('Rollback applied')) {
+            throw e; // Fatal consistency errors should blow up as requested
+        }
         return _vApi(false, null, 'Error: ' + e.message);
     } finally {
         lock.releaseLock();

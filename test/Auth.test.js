@@ -50,7 +50,7 @@ test('Auth: Impersonation attempt via user token on admin endpoint fails', () =>
 
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const tmSheet = ss.getSheetByName('Turn Management');
-    tmSheet.appendRow(['Test', '123', '', '', '', true]);
+    tmSheet.appendRow(['Test', 'pid', '123', '', true, '', '']);
 
     const uRes = loginParticipant('123');
     const uToken = uRes.data.token;
@@ -62,7 +62,7 @@ test('Auth: Impersonation attempt via user token on admin endpoint fails', () =>
 test('Auth: Participant login exact match preserving leading zeroes', () => {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const tmSheet = ss.getSheetByName('Turn Management');
-    tmSheet.appendRow(['Zero', '007', '1', '1', '1', true]);
+    tmSheet.appendRow(['Zero', 'pid', '007', '', true, '', '']);
 
     // Test that number 7 does not match string 007
     const badRes = loginParticipant('7');
@@ -76,8 +76,8 @@ test('Auth: Participant login exact match preserving leading zeroes', () => {
 test('Auth: Duplicate PIN fails safe', () => {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const tmSheet = ss.getSheetByName('Turn Management');
-    tmSheet.appendRow(['A', '007', '', '', '', true]);
-    tmSheet.appendRow(['B', '007', '', '', '', true]);
+    tmSheet.appendRow(['A', 'pid1', '007', '', true, '', '']);
+    tmSheet.appendRow(['B', 'pid2', '007', '', true, '', '']);
 
     const res = loginParticipant('007');
     assert.equal(res.ok, false);
@@ -87,7 +87,7 @@ test('Auth: Duplicate PIN fails safe', () => {
 test('Auth: Resolve participant rereads fresh projection', () => {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const tmSheet = ss.getSheetByName('Turn Management');
-    const row = ['Bob', '555', '', true, '', '']; // active = true
+    const row = ['Bob', 'pid3', '555', '', true, '', '']; // active = true
     tmSheet.appendRow(row);
 
     const res = loginParticipant('555');
@@ -96,8 +96,8 @@ test('Auth: Resolve participant rereads fresh projection', () => {
     let proj = resolveParticipantSession(token);
     assert.equal(proj.isActive, true);
 
-    // Mutate state in DB
-    tmSheet.getRange(tmSheet.getLastRow(), 4).setValue(false); // Make inactive
+    // Mutate state in DB (Active is column 5 since we added Participant ID at column 2)
+    tmSheet.getRange(tmSheet.getLastRow(), 5).setValue(false); // Make inactive
 
     proj = resolveParticipantSession(token);
     assert.equal(proj.isActive, false); // Picked up change
@@ -106,7 +106,7 @@ test('Auth: Resolve participant rereads fresh projection', () => {
 test('Auth: Safe response projection - PIN not returned', () => {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const tmSheet = ss.getSheetByName('Turn Management');
-    tmSheet.appendRow(['Safe', '999', '123-4567', '1', '1', true]);
+    tmSheet.appendRow(['Safe', 'pid4', '999', '123-4567', true, '', '']);
 
     const res = loginParticipant('999');
     const projStr = JSON.stringify(res.data.participant);
@@ -127,14 +127,14 @@ test('Auth: Logout invalidates session', () => {
 test('Auth: Session resume fails closed on newly introduced duplicate PIN', () => {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const tmSheet = ss.getSheetByName('Turn Management');
-    const row = ['DupeTest', '9999', '', true, '', ''];
+    const row = ['DupeTest', 'pid5', '9999', '', true, '', ''];
     tmSheet.appendRow(row);
 
     const res = loginParticipant('9999');
     assert.equal(res.ok, true);
 
     // Add duplicate
-    const dupeRow = ['Dupe2', '9999', '', true, '', ''];
+    const dupeRow = ['Dupe2', 'pid6', '9999', '', true, '', ''];
     tmSheet.appendRow(dupeRow);
 
     const proj = resolveParticipantSession(res.data.token);

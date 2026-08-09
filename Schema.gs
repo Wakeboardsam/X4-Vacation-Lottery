@@ -10,7 +10,7 @@ const REQUIRED_SHEETS = [
 
 const REQUIRED_HEADERS = {
   'Turn Management': [
-    "Name", "PIN", "Phone Number", "Active for Year", "Seniority Position", "Lottery Position",
+    "Name", "Participant ID", "PIN", "Phone Number", "Active for Year", "Seniority Position", "Lottery Position",
     "Vacation Phase Enabled", "Vacation Week Target Override", "Weekend Phase Enabled",
     "Weekend Assignment Maximum", "Holiday Volunteer", "Mandatory Holiday Eligible",
     "Transfer Giver", "Transfer Receiver", "Had Spring Break Last Year", "Had Christmas Week Last Year",
@@ -69,6 +69,12 @@ function planSchema_(ss) {
                 plan.validationsToApply.push({ sheetName, col: headMap['Rules Acknowledged Year'] + 1, type: 'YEAR' });
                 plan.formatsToApply.push({ sheetName, col: headMap['PIN'] + 1, format: '@' });
                 plan.formatsToApply.push({ sheetName, col: headMap['Phone Number'] + 1, format: '@' });
+            } else if (sheetName === 'Week Availability') {
+                const headMap = {};
+                REQUIRED_HEADERS[sheetName].forEach((h, i) => headMap[h] = i);
+                plan.validationsToApply.push({ sheetName, col: headMap['Capacity Override'] + 1, type: 'STRICT_POS_INT' });
+                plan.validationsToApply.push({ sheetName, col: headMap['Prime Classification'] + 1, type: 'LIST_PRIME' });
+                plan.validationsToApply.push({ sheetName, col: headMap['Special Week'] + 1, type: 'LIST_SPECIAL' });
             } else if (sheetName === 'Admin Options') {
                 plan.validationsToApply.push({ sheetName, col: 3, type: 'CHECKBOX' }); // Sensitive
             } else if (sheetName === 'Rules & Tips') {
@@ -271,7 +277,8 @@ function planSchema_(ss) {
              }
              const defaults = {
                  'Default Vacation Week Target': '9',
-                 'Default Vacation Week Capacity': '4'
+                 'Default Vacation Week Capacity': '4',
+                 'Vacation ACTIVE-window size': '3'
              };
              // Attach it to plan so we can append them
              plan.adminOptionsToAdd = {};
@@ -404,9 +411,10 @@ function normalizeValidation_(rule) {
 function buildValidationRule_(type) {
     if (type === 'CHECKBOX') return SpreadsheetApp.newDataValidation().requireCheckbox().build();
     if (type === 'POS_INT') return SpreadsheetApp.newDataValidation().requireFormulaSatisfied(`=OR(ISBLANK(INDIRECT("R"&ROW()&"C"&COLUMN(), FALSE)), AND(ISNUMBER(INDIRECT("R"&ROW()&"C"&COLUMN(), FALSE)), INDIRECT("R"&ROW()&"C"&COLUMN(), FALSE)>=0, INT(INDIRECT("R"&ROW()&"C"&COLUMN(), FALSE))=INDIRECT("R"&ROW()&"C"&COLUMN(), FALSE)))`).setHelpText('Must be a blank or a positive whole number.').build();
+    if (type === 'STRICT_POS_INT') return SpreadsheetApp.newDataValidation().requireFormulaSatisfied(`=OR(ISBLANK(INDIRECT("R"&ROW()&"C"&COLUMN(), FALSE)), AND(ISNUMBER(INDIRECT("R"&ROW()&"C"&COLUMN(), FALSE)), INDIRECT("R"&ROW()&"C"&COLUMN(), FALSE)>0, INT(INDIRECT("R"&ROW()&"C"&COLUMN(), FALSE))=INDIRECT("R"&ROW()&"C"&COLUMN(), FALSE)))`).setHelpText('Must be a blank or a positive whole number greater than 0.').build();
     if (type === 'YEAR') return SpreadsheetApp.newDataValidation().requireFormulaSatisfied(`=OR(ISBLANK(INDIRECT("R"&ROW()&"C"&COLUMN(), FALSE)), AND(ISNUMBER(INDIRECT("R"&ROW()&"C"&COLUMN(), FALSE)), LEN(INDIRECT("R"&ROW()&"C"&COLUMN(), FALSE))=4))`).setHelpText('Must be a blank or 4-digit year.').build();
-    if (type === 'DROPDOWN_PRIME') return SpreadsheetApp.newDataValidation().requireValueInList(['Prime', 'Non-Prime']).build();
-    if (type === 'DROPDOWN_SPECIAL') return SpreadsheetApp.newDataValidation().requireValueInList(['None', 'Spring Break', 'Christmas']).build();
+    if (type === 'LIST_PRIME') return SpreadsheetApp.newDataValidation().requireValueInList(['Prime', 'Non-Prime']).build();
+    if (type === 'LIST_SPECIAL') return SpreadsheetApp.newDataValidation().requireValueInList(['None', 'Spring Break', 'Christmas']).build();
 
     if (type === 'DROPDOWN_SETUP') return SpreadsheetApp.newDataValidation().requireValueInList(_VALID_SETUP_STATES).build();
     if (type === 'DROPDOWN_PHASE') return SpreadsheetApp.newDataValidation().requireValueInList(_VALID_PHASES).build();
