@@ -66,7 +66,7 @@ test('Schema: Populated data, formulas, formats are preserved on repeat run', ()
     const tmSheet = ss.getSheetByName('Turn Management');
 
     // add some data
-    tmSheet.appendRow(['John', '00123', '555-1234', true, 1, 1, false, 1, true, 1, false, false, false, false, false, false, false, 0, '2023']);
+    tmSheet.appendRow(['John', 'pid1', '00123', '555-1234', true, 1, 1, false, 1, true, 1, false, false, false, false, false, false, false, 0, '2023']);
     tmSheet.getRange(2, 1).setBackgrounds([['#ff0000']]);
     tmSheet.getRange(2, 1).setFormulas([['=A1']]);
 
@@ -99,8 +99,8 @@ test('Schema: Missing headers appended without disturbing existing columns', () 
     assert.equal(headers[2], 'Phone Number');
 
     // Remaining headers appended
-    assert.equal(headers[3], 'Active for Year');
-    assert.equal(headers[4], 'Seniority Position');
+    assert.equal(headers[3], 'Participant ID');
+    assert.equal(headers[4], 'Active for Year');
     // Data preserved
     assert.equal(dataAfter[1][0], '01');
     assert.equal(dataAfter[1][1], 'Alice');

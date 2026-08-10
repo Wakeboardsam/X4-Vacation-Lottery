@@ -14,6 +14,7 @@ const DEFAULT_CONFIG = {
   "Current Active Window": "[]",
   "Current Directional Window": "[]",
   "Current Directional Window Completed": "[]",
+  "Current Queue Skip State": "{}",
   "Active Window Generation": "0"
 };
 
@@ -119,6 +120,15 @@ function validateConfigValue_(key, val) {
        if (!Array.isArray(parsed)) throw new Error();
      } catch (e) {
        throw new Error(`Invalid queue-list serialization for ${key}: ${val}`);
+     }
+  }
+
+  if (key === 'Current Queue Skip State') {
+     try {
+       const parsed = JSON.parse(val || '{}');
+       if (typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error();
+     } catch (e) {
+       throw new Error(`Invalid skip state serialization for ${key}: ${val}`);
      }
   }
 

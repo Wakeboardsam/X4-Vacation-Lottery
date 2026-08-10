@@ -1,6 +1,7 @@
 // Schema Service
 const REQUIRED_SHEETS = [
   'Turn Management',
+  'Week Availability',
   'Admin Options',
   'Rules & Tips',
   'Soft Holiday Warnings',
@@ -9,11 +10,15 @@ const REQUIRED_SHEETS = [
 
 const REQUIRED_HEADERS = {
   'Turn Management': [
-    "Name", "PIN", "Phone Number", "Active for Year", "Seniority Position", "Lottery Position",
+    "Name", "Participant ID", "PIN", "Phone Number", "Active for Year", "Seniority Position", "Lottery Position",
     "Vacation Phase Enabled", "Vacation Week Target Override", "Weekend Phase Enabled",
     "Weekend Assignment Maximum", "Holiday Volunteer", "Mandatory Holiday Eligible",
     "Transfer Giver", "Transfer Receiver", "Had Spring Break Last Year", "Had Christmas Week Last Year",
     "Worked Any Official Holiday Last Year", "Week Availability Capacity Override", "Rules Acknowledged Year"
+  ],
+  'Week Availability': [
+    "Week Start Date", "Prime Classification", "Special Week", "Capacity Override",
+    "Person1", "Person2", "Person3", "Person4"
   ],
   'Admin Options': ["Setting", "Value", "Sensitive", "Description"],
   'Rules & Tips': ["Display Order", "Rule Text", "Enabled"],
@@ -64,6 +69,12 @@ function planSchema_(ss) {
                 plan.validationsToApply.push({ sheetName, col: headMap['Rules Acknowledged Year'] + 1, type: 'YEAR' });
                 plan.formatsToApply.push({ sheetName, col: headMap['PIN'] + 1, format: '@' });
                 plan.formatsToApply.push({ sheetName, col: headMap['Phone Number'] + 1, format: '@' });
+            } else if (sheetName === 'Week Availability') {
+                const headMap = {};
+                REQUIRED_HEADERS[sheetName].forEach((h, i) => headMap[h] = i);
+                plan.validationsToApply.push({ sheetName, col: headMap['Capacity Override'] + 1, type: 'STRICT_POS_INT' });
+                plan.validationsToApply.push({ sheetName, col: headMap['Prime Classification'] + 1, type: 'LIST_PRIME' });
+                plan.validationsToApply.push({ sheetName, col: headMap['Special Week'] + 1, type: 'LIST_SPECIAL' });
             } else if (sheetName === 'Admin Options') {
                 plan.validationsToApply.push({ sheetName, col: 3, type: 'CHECKBOX' }); // Sensitive
             } else if (sheetName === 'Rules & Tips') {
@@ -97,7 +108,24 @@ function planSchema_(ss) {
 
             const headMap = _getHMap(data);
 
-            if (sheetName === 'Turn Management') {
+            if (sheetName === 'Week Availability') {
+                if (headMap['Capacity Override'] !== undefined) {
+                    const col = 'Capacity Override';
+                    for (let r = 1; r < data.length; r++) {
+                        const val = data[r][headMap[col]];
+                        if (val !== '' && (!Number.isInteger(Number(val)) || Number(val) < 0)) {
+                            plan.conflicts.push(`Existing invalid positive integer found in column '${col}' at row ${r+1}`);
+                        }
+                    }
+                    const rule = buildValidationRule_('POS_INT');
+                    const lastRow = Math.max(sheet.getMaxRows(), 2);
+                    const existingTop = sheet.getRange(2, headMap[col] + 1).getDataValidation();
+                    const existingBottom = sheet.getRange(lastRow - 1, headMap[col] + 1).getDataValidation();
+                    if (normalizeValidation_(existingTop) !== normalizeValidation_(rule) || normalizeValidation_(existingBottom) !== normalizeValidation_(rule)) {
+                        plan.validationsToApply.push({ sheetName, col: headMap[col] + 1, type: 'POS_INT' });
+                    }
+                }
+            } else if (sheetName === 'Turn Management') {
                 const checkboxes = ["Active for Year", "Vacation Phase Enabled", "Weekend Phase Enabled",
                                   "Holiday Volunteer", "Mandatory Holiday Eligible", "Transfer Giver",
                                   "Transfer Receiver", "Had Spring Break Last Year",
@@ -204,6 +232,12 @@ function planSchema_(ss) {
 
             // Apply Prime / Special Week if found
             if (headMap['Prime Classification'] !== undefined) {
+                 for (let r = 1; r < data.length; r++) {
+                     const val = data[r][headMap['Prime Classification']];
+                     if (val !== '' && val !== 'Prime' && val !== 'Non-Prime') {
+                         plan.conflicts.push(`Existing invalid Prime Classification found at row ${r+1}`);
+                     }
+                 }
                  const rule = buildValidationRule_('DROPDOWN_PRIME');
                  const lastRow = Math.max(sheet.getMaxRows(), 2);
                  const existingTop = sheet.getRange(2, headMap['Prime Classification'] + 1).getDataValidation();
@@ -213,6 +247,12 @@ function planSchema_(ss) {
                  }
             }
             if (headMap['Special Week'] !== undefined) {
+                 for (let r = 1; r < data.length; r++) {
+                     const val = data[r][headMap['Special Week']];
+                     if (val !== '' && val !== 'None' && val !== 'Spring Break' && val !== 'Christmas') {
+                         plan.conflicts.push(`Existing invalid Special Week found at row ${r+1}`);
+                     }
+                 }
                  const rule = buildValidationRule_('DROPDOWN_SPECIAL');
                  const lastRow = Math.max(sheet.getMaxRows(), 2);
                  const existingTop = sheet.getRange(2, headMap['Special Week'] + 1).getDataValidation();
@@ -221,6 +261,32 @@ function planSchema_(ss) {
                      plan.validationsToApply.push({ sheetName, col: headMap['Special Week'] + 1, type: 'DROPDOWN_SPECIAL' });
                  }
             }
+        }
+    }
+
+    // Admin Options Default Defaults
+    let adminOptionsSheet = ss.getSheetByName('Admin Options');
+    if (adminOptionsSheet) {
+        const adData = adminOptionsSheet.getDataRange().getValues();
+        const adMap = _getHMap(adData);
+        if (adMap['Setting'] !== undefined && adMap['Value'] !== undefined) {
+             const existingSets = new Set();
+             for (let i = 1; i < adData.length; i++) {
+                  const s = String(adData[i][adMap['Setting']] || '').trim();
+                  if (s) existingSets.add(s);
+             }
+             const defaults = {
+                 'Default Vacation Week Target': '9',
+                 'Default Vacation Week Capacity': '4',
+                 'Vacation ACTIVE-window size': '3'
+             };
+             // Attach it to plan so we can append them
+             plan.adminOptionsToAdd = {};
+             for (const k in defaults) {
+                 if (!existingSets.has(k)) {
+                     plan.adminOptionsToAdd[k] = defaults[k];
+                 }
+             }
         }
     }
 
@@ -345,9 +411,10 @@ function normalizeValidation_(rule) {
 function buildValidationRule_(type) {
     if (type === 'CHECKBOX') return SpreadsheetApp.newDataValidation().requireCheckbox().build();
     if (type === 'POS_INT') return SpreadsheetApp.newDataValidation().requireFormulaSatisfied(`=OR(ISBLANK(INDIRECT("R"&ROW()&"C"&COLUMN(), FALSE)), AND(ISNUMBER(INDIRECT("R"&ROW()&"C"&COLUMN(), FALSE)), INDIRECT("R"&ROW()&"C"&COLUMN(), FALSE)>=0, INT(INDIRECT("R"&ROW()&"C"&COLUMN(), FALSE))=INDIRECT("R"&ROW()&"C"&COLUMN(), FALSE)))`).setHelpText('Must be a blank or a positive whole number.').build();
+    if (type === 'STRICT_POS_INT') return SpreadsheetApp.newDataValidation().requireFormulaSatisfied(`=OR(ISBLANK(INDIRECT("R"&ROW()&"C"&COLUMN(), FALSE)), AND(ISNUMBER(INDIRECT("R"&ROW()&"C"&COLUMN(), FALSE)), INDIRECT("R"&ROW()&"C"&COLUMN(), FALSE)>0, INT(INDIRECT("R"&ROW()&"C"&COLUMN(), FALSE))=INDIRECT("R"&ROW()&"C"&COLUMN(), FALSE)))`).setHelpText('Must be a blank or a positive whole number greater than 0.').build();
     if (type === 'YEAR') return SpreadsheetApp.newDataValidation().requireFormulaSatisfied(`=OR(ISBLANK(INDIRECT("R"&ROW()&"C"&COLUMN(), FALSE)), AND(ISNUMBER(INDIRECT("R"&ROW()&"C"&COLUMN(), FALSE)), LEN(INDIRECT("R"&ROW()&"C"&COLUMN(), FALSE))=4))`).setHelpText('Must be a blank or 4-digit year.').build();
-    if (type === 'DROPDOWN_PRIME') return SpreadsheetApp.newDataValidation().requireValueInList(['Prime', 'Non-Prime']).build();
-    if (type === 'DROPDOWN_SPECIAL') return SpreadsheetApp.newDataValidation().requireValueInList(['None', 'Spring Break', 'Christmas']).build();
+    if (type === 'LIST_PRIME') return SpreadsheetApp.newDataValidation().requireValueInList(['Prime', 'Non-Prime']).build();
+    if (type === 'LIST_SPECIAL') return SpreadsheetApp.newDataValidation().requireValueInList(['None', 'Spring Break', 'Christmas']).build();
 
     if (type === 'DROPDOWN_SETUP') return SpreadsheetApp.newDataValidation().requireValueInList(_VALID_SETUP_STATES).build();
     if (type === 'DROPDOWN_PHASE') return SpreadsheetApp.newDataValidation().requireValueInList(_VALID_PHASES).build();
@@ -388,6 +455,21 @@ function initializeOrUpdateWorkbook_() {
                 sheet.getRange(1, numCols + 1, 1, missing.length).setValues([missing]);
             }
         }
+    }
+
+    if (plan.adminOptionsToAdd && Object.keys(plan.adminOptionsToAdd).length > 0) {
+        const adminSh = ss.getSheetByName('Admin Options');
+        const adData = adminSh.getDataRange().getValues();
+        const adMap = _getHMap(adData);
+        const keysToAdd = Object.keys(plan.adminOptionsToAdd);
+        let lastRow = adminSh.getLastRow();
+        const rowsToAppend = keysToAdd.map(k => {
+             const row = new Array(Math.max(adminSh.getLastColumn(), 2)).fill('');
+             row[adMap['Setting']] = k;
+             row[adMap['Value']] = plan.adminOptionsToAdd[k];
+             return row;
+        });
+        adminSh.getRange(lastRow + 1, 1, rowsToAppend.length, rowsToAppend[0].length).setValues(rowsToAppend);
     }
 
     const configSh = ss.getSheetByName('Config');
