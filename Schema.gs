@@ -29,6 +29,7 @@ const REQUIRED_HEADERS = {
 const _apiResponse = typeof apiResponse_ === 'function' ? apiResponse_ : (typeof global !== 'undefined' && global.apiResponse_ ? global.apiResponse_ : (require('./Utils.gs').apiResponse));
 const _getHMap = typeof getHeaderMap_ === 'function' ? getHeaderMap_ : (typeof global !== 'undefined' && global.getHeaderMap_ ? global.getHeaderMap_ : (require('./Utils.gs').getHeaderMap));
 const _getDups = typeof getDuplicates_ === 'function' ? getDuplicates_ : (typeof global !== 'undefined' && global.getDuplicates_ ? global.getDuplicates_ : (require('./Utils.gs').getDuplicates));
+const _validateParticipantIdsSchema = typeof validateParticipantIds_ === 'function' ? validateParticipantIds_ : (typeof global !== 'undefined' && global.validateParticipantIds_ ? global.validateParticipantIds_ : (require('./Utils.gs').validateParticipantIds));
 const _DEFAULT_CONFIG_REF = typeof DEFAULT_CONFIG !== 'undefined' ? DEFAULT_CONFIG : (typeof global !== 'undefined' && global.DEFAULT_CONFIG ? global.DEFAULT_CONFIG : (require('./State.gs').DEFAULT_CONFIG));
 const _VALID_PHASES = typeof VALID_PHASES !== 'undefined' ? VALID_PHASES : (typeof global !== 'undefined' && global.VALID_PHASES ? global.VALID_PHASES : (require('./State.gs').VALID_PHASES));
 const _VALID_SETUP_STATES = typeof VALID_SETUP_STATES !== 'undefined' ? VALID_SETUP_STATES : (typeof global !== 'undefined' && global.VALID_SETUP_STATES ? global.VALID_SETUP_STATES : (require('./State.gs').VALID_SETUP_STATES));
@@ -113,19 +114,26 @@ function planSchema_(ss) {
                     const col = 'Capacity Override';
                     for (let r = 1; r < data.length; r++) {
                         const val = data[r][headMap[col]];
-                        if (val !== '' && (!Number.isInteger(Number(val)) || Number(val) < 0)) {
+                        if (val !== '' && (!Number.isInteger(Number(val)) || Number(val) <= 0)) {
                             plan.conflicts.push(`Existing invalid positive integer found in column '${col}' at row ${r+1}`);
                         }
                     }
-                    const rule = buildValidationRule_('POS_INT');
+                    const rule = buildValidationRule_('STRICT_POS_INT');
                     const lastRow = Math.max(sheet.getMaxRows(), 2);
                     const existingTop = sheet.getRange(2, headMap[col] + 1).getDataValidation();
                     const existingBottom = sheet.getRange(lastRow - 1, headMap[col] + 1).getDataValidation();
                     if (normalizeValidation_(existingTop) !== normalizeValidation_(rule) || normalizeValidation_(existingBottom) !== normalizeValidation_(rule)) {
-                        plan.validationsToApply.push({ sheetName, col: headMap[col] + 1, type: 'POS_INT' });
+                        plan.validationsToApply.push({ sheetName, col: headMap[col] + 1, type: 'STRICT_POS_INT' });
                     }
                 }
             } else if (sheetName === 'Turn Management') {
+                if (headMap['Participant ID'] !== undefined && headMap['Name'] !== undefined && headMap['PIN'] !== undefined) {
+                    try {
+                        _validateParticipantIdsSchema(data, headMap);
+                    } catch (identityErr) {
+                        plan.conflicts.push(identityErr.message);
+                    }
+                }
                 const checkboxes = ["Active for Year", "Vacation Phase Enabled", "Weekend Phase Enabled",
                                   "Holiday Volunteer", "Mandatory Holiday Eligible", "Transfer Giver",
                                   "Transfer Receiver", "Had Spring Break Last Year",
@@ -238,12 +246,12 @@ function planSchema_(ss) {
                          plan.conflicts.push(`Existing invalid Prime Classification found at row ${r+1}`);
                      }
                  }
-                 const rule = buildValidationRule_('DROPDOWN_PRIME');
+                 const rule = buildValidationRule_('LIST_PRIME');
                  const lastRow = Math.max(sheet.getMaxRows(), 2);
                  const existingTop = sheet.getRange(2, headMap['Prime Classification'] + 1).getDataValidation();
                  const existingBottom = sheet.getRange(lastRow - 1, headMap['Prime Classification'] + 1).getDataValidation();
                  if (normalizeValidation_(existingTop) !== normalizeValidation_(rule) || normalizeValidation_(existingBottom) !== normalizeValidation_(rule)) {
-                     plan.validationsToApply.push({ sheetName, col: headMap['Prime Classification'] + 1, type: 'DROPDOWN_PRIME' });
+                     plan.validationsToApply.push({ sheetName, col: headMap['Prime Classification'] + 1, type: 'LIST_PRIME' });
                  }
             }
             if (headMap['Special Week'] !== undefined) {
@@ -253,18 +261,23 @@ function planSchema_(ss) {
                          plan.conflicts.push(`Existing invalid Special Week found at row ${r+1}`);
                      }
                  }
-                 const rule = buildValidationRule_('DROPDOWN_SPECIAL');
+                 const rule = buildValidationRule_('LIST_SPECIAL');
                  const lastRow = Math.max(sheet.getMaxRows(), 2);
                  const existingTop = sheet.getRange(2, headMap['Special Week'] + 1).getDataValidation();
                  const existingBottom = sheet.getRange(lastRow - 1, headMap['Special Week'] + 1).getDataValidation();
                  if (normalizeValidation_(existingTop) !== normalizeValidation_(rule) || normalizeValidation_(existingBottom) !== normalizeValidation_(rule)) {
-                     plan.validationsToApply.push({ sheetName, col: headMap['Special Week'] + 1, type: 'DROPDOWN_SPECIAL' });
+                     plan.validationsToApply.push({ sheetName, col: headMap['Special Week'] + 1, type: 'LIST_SPECIAL' });
                  }
             }
         }
     }
 
     // Admin Options Default Defaults
+    const adminDefaults = {
+        'Default Vacation Week Target': '9',
+        'Default Vacation Week Capacity': '4',
+        'Vacation ACTIVE-window size': '3'
+    };
     let adminOptionsSheet = ss.getSheetByName('Admin Options');
     if (adminOptionsSheet) {
         const adData = adminOptionsSheet.getDataRange().getValues();
@@ -275,18 +288,36 @@ function planSchema_(ss) {
                   const s = String(adData[i][adMap['Setting']] || '').trim();
                   if (s) existingSets.add(s);
              }
-             const defaults = {
-                 'Default Vacation Week Target': '9',
-                 'Default Vacation Week Capacity': '4',
-                 'Vacation ACTIVE-window size': '3'
-             };
              // Attach it to plan so we can append them
              plan.adminOptionsToAdd = {};
-             for (const k in defaults) {
+             let nextAdminRow = adData.length + 1;
+             for (const k in adminDefaults) {
                  if (!existingSets.has(k)) {
-                     plan.adminOptionsToAdd[k] = defaults[k];
+                     plan.adminOptionsToAdd[k] = adminDefaults[k];
+                     plan.validationsToApply.push({ sheetName: 'Admin Options', row: nextAdminRow, col: adMap['Value'] + 1, type: 'REQUIRED_POS_INT' });
+                     nextAdminRow++;
                  }
              }
+             for (let i = 1; i < adData.length; i++) {
+                 const setting = String(adData[i][adMap['Setting']] || '').trim();
+                 if (adminDefaults[setting] === undefined) continue;
+                 const value = adData[i][adMap['Value']];
+                 if (String(value === null || value === undefined ? '' : value).trim() === '' || !Number.isInteger(Number(value)) || Number(value) <= 0) {
+                     plan.conflicts.push(`Admin Options '${setting}' must be a positive whole number.`);
+                 }
+                 const rule = buildValidationRule_('REQUIRED_POS_INT');
+                 const existingRule = adminOptionsSheet.getRange(i + 1, adMap['Value'] + 1).getDataValidation();
+                 if (normalizeValidation_(existingRule) !== normalizeValidation_(rule)) {
+                     plan.validationsToApply.push({ sheetName: 'Admin Options', row: i + 1, col: adMap['Value'] + 1, type: 'REQUIRED_POS_INT' });
+                 }
+             }
+        }
+    } else {
+        plan.adminOptionsToAdd = { ...adminDefaults };
+        let nextAdminRow = 2;
+        for (const k in adminDefaults) {
+            plan.validationsToApply.push({ sheetName: 'Admin Options', row: nextAdminRow, col: 2, type: 'REQUIRED_POS_INT' });
+            nextAdminRow++;
         }
     }
 
@@ -409,12 +440,13 @@ function normalizeValidation_(rule) {
 }
 
 function buildValidationRule_(type) {
-    if (type === 'CHECKBOX') return SpreadsheetApp.newDataValidation().requireCheckbox().build();
-    if (type === 'POS_INT') return SpreadsheetApp.newDataValidation().requireFormulaSatisfied(`=OR(ISBLANK(INDIRECT("R"&ROW()&"C"&COLUMN(), FALSE)), AND(ISNUMBER(INDIRECT("R"&ROW()&"C"&COLUMN(), FALSE)), INDIRECT("R"&ROW()&"C"&COLUMN(), FALSE)>=0, INT(INDIRECT("R"&ROW()&"C"&COLUMN(), FALSE))=INDIRECT("R"&ROW()&"C"&COLUMN(), FALSE)))`).setHelpText('Must be a blank or a positive whole number.').build();
-    if (type === 'STRICT_POS_INT') return SpreadsheetApp.newDataValidation().requireFormulaSatisfied(`=OR(ISBLANK(INDIRECT("R"&ROW()&"C"&COLUMN(), FALSE)), AND(ISNUMBER(INDIRECT("R"&ROW()&"C"&COLUMN(), FALSE)), INDIRECT("R"&ROW()&"C"&COLUMN(), FALSE)>0, INT(INDIRECT("R"&ROW()&"C"&COLUMN(), FALSE))=INDIRECT("R"&ROW()&"C"&COLUMN(), FALSE)))`).setHelpText('Must be a blank or a positive whole number greater than 0.').build();
+    if (type === 'CHECKBOX') return SpreadsheetApp.newDataValidation().requireCheckbox().setAllowInvalid(false).build();
+    if (type === 'POS_INT') return SpreadsheetApp.newDataValidation().requireFormulaSatisfied(`=OR(ISBLANK(INDIRECT("R"&ROW()&"C"&COLUMN(), FALSE)), AND(ISNUMBER(INDIRECT("R"&ROW()&"C"&COLUMN(), FALSE)), INDIRECT("R"&ROW()&"C"&COLUMN(), FALSE)>=0, INT(INDIRECT("R"&ROW()&"C"&COLUMN(), FALSE))=INDIRECT("R"&ROW()&"C"&COLUMN(), FALSE)))`).setHelpText('Must be a blank or a non-negative whole number.').setAllowInvalid(false).build();
+    if (type === 'STRICT_POS_INT') return SpreadsheetApp.newDataValidation().requireFormulaSatisfied(`=OR(ISBLANK(INDIRECT("R"&ROW()&"C"&COLUMN(), FALSE)), AND(ISNUMBER(INDIRECT("R"&ROW()&"C"&COLUMN(), FALSE)), INDIRECT("R"&ROW()&"C"&COLUMN(), FALSE)>0, INT(INDIRECT("R"&ROW()&"C"&COLUMN(), FALSE))=INDIRECT("R"&ROW()&"C"&COLUMN(), FALSE)))`).setHelpText('Must be blank or a positive whole number greater than 0.').setAllowInvalid(false).build();
+    if (type === 'REQUIRED_POS_INT') return SpreadsheetApp.newDataValidation().requireFormulaSatisfied(`=AND(ISNUMBER(INDIRECT("R"&ROW()&"C"&COLUMN(), FALSE)), INDIRECT("R"&ROW()&"C"&COLUMN(), FALSE)>0, INT(INDIRECT("R"&ROW()&"C"&COLUMN(), FALSE))=INDIRECT("R"&ROW()&"C"&COLUMN(), FALSE))`).setHelpText('Must be a positive whole number greater than 0.').setAllowInvalid(false).build();
     if (type === 'YEAR') return SpreadsheetApp.newDataValidation().requireFormulaSatisfied(`=OR(ISBLANK(INDIRECT("R"&ROW()&"C"&COLUMN(), FALSE)), AND(ISNUMBER(INDIRECT("R"&ROW()&"C"&COLUMN(), FALSE)), LEN(INDIRECT("R"&ROW()&"C"&COLUMN(), FALSE))=4))`).setHelpText('Must be a blank or 4-digit year.').build();
-    if (type === 'LIST_PRIME') return SpreadsheetApp.newDataValidation().requireValueInList(['Prime', 'Non-Prime']).build();
-    if (type === 'LIST_SPECIAL') return SpreadsheetApp.newDataValidation().requireValueInList(['None', 'Spring Break', 'Christmas']).build();
+    if (type === 'LIST_PRIME') return SpreadsheetApp.newDataValidation().requireValueInList(['Prime', 'Non-Prime']).setAllowInvalid(false).build();
+    if (type === 'LIST_SPECIAL') return SpreadsheetApp.newDataValidation().requireValueInList(['None', 'Spring Break', 'Christmas']).setAllowInvalid(false).build();
 
     if (type === 'DROPDOWN_SETUP') return SpreadsheetApp.newDataValidation().requireValueInList(_VALID_SETUP_STATES).build();
     if (type === 'DROPDOWN_PHASE') return SpreadsheetApp.newDataValidation().requireValueInList(_VALID_PHASES).build();

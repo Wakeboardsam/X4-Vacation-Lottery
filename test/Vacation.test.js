@@ -152,7 +152,7 @@ test('Vacation: End to End E2E Simulation Merge Gate', () => {
     }
 });
 
-test('Vacation: Atomic Rollback Behavior - failed write resets matrix', () => {
+test('Vacation: Config failure rolls assignments back as an ordinary rejection', () => {
     writeConfigState({
         'Phase Ready State': 'READY_VACATION_SENIORITY',
         'Current Phase': 'VACATION_SENIORITY',
@@ -178,14 +178,9 @@ test('Vacation: Atomic Rollback Behavior - failed write resets matrix', () => {
     try {
         global.writeConfigState_ = () => { throw new Error('Simulated write failure'); };
 
-        let threwFatalError = false;
-        try {
-            submitVacation('1111', 't1', ['W1', 'W2']);
-        } catch(e) {
-            threwFatalError = true;
-            assert.match(e.message, /Rollback applied/);
-        }
-        assert.ok(threwFatalError, "Expected fatal rollback error to be thrown");
+        const result = submitVacation('1111', 't1', ['W1', 'W2']);
+        assert.equal(result.ok, false);
+        assert.equal(result.message, 'Your vacation selection could not be saved. No changes were made. Please try again.');
 
         // Verify assignments rolled back
         const { data, map } = getWeekAvailability();
@@ -261,7 +256,7 @@ test('Vacation: Successfully makes two Non-Prime selections and applies skip', (
     }
 });
 
-test('Vacation: Skips are preserved across Round 1 -> Round 2 transition', () => {
+test('Vacation: Round transition consumes the pending Round 2 appearance exactly once', () => {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const tm = ss.getSheetByName('Turn Management');
     tm.appendRow(['Bob', '2222', '2222', '', 'TRUE', '1', '1', 'TRUE', '9', '']);
@@ -293,9 +288,10 @@ test('Vacation: Skips are preserved across Round 1 -> Round 2 transition', () =>
 
     const config = readConfigState();
     const skipState = JSON.parse(config['Current Queue Skip State'] || '{}');
-    assert.equal(skipState['2222'], 1);
+    assert.equal(skipState['2222'], undefined);
     assert.equal(config['Current Phase'], 'VACATION_RANDOM');
-    assert.equal(config['Current Vacation Round'], '2');
+    assert.equal(config['Current Vacation Round'], '3');
+    assert.equal(JSON.parse(config['Current Active Window'])[0].participantId, '2222');
 });
 
 test('Admin: beginVacationRound1 success', () => {

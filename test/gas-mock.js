@@ -367,8 +367,12 @@ class MockDataValidation {
     this.allowInvalid = allow;
     return this;
   }
+  setAllowInvalid(allow) {
+    this._allowInvalid = allow;
+    return this;
+  }
   build() {
-    return { type: this.type, args: this.args, allowInvalid: this.allowInvalid };
+    return new MockDataValidation(this);
   }
 }
 
