@@ -113,16 +113,16 @@ function planSchema_(ss) {
                     const col = 'Capacity Override';
                     for (let r = 1; r < data.length; r++) {
                         const val = data[r][headMap[col]];
-                        if (val !== '' && (!Number.isInteger(Number(val)) || Number(val) < 0)) {
-                            plan.conflicts.push(`Existing invalid positive integer found in column '${col}' at row ${r+1}`);
+                        if (val !== '' && (!Number.isInteger(Number(val)) || Number(val) <= 0)) {
+                            plan.conflicts.push(`Existing invalid strictly positive integer found in column '${col}' at row ${r+1}`);
                         }
                     }
-                    const rule = buildValidationRule_('POS_INT');
+                    const rule = buildValidationRule_('STRICT_POS_INT');
                     const lastRow = Math.max(sheet.getMaxRows(), 2);
                     const existingTop = sheet.getRange(2, headMap[col] + 1).getDataValidation();
                     const existingBottom = sheet.getRange(lastRow - 1, headMap[col] + 1).getDataValidation();
                     if (normalizeValidation_(existingTop) !== normalizeValidation_(rule) || normalizeValidation_(existingBottom) !== normalizeValidation_(rule)) {
-                        plan.validationsToApply.push({ sheetName, col: headMap[col] + 1, type: 'POS_INT' });
+                        plan.validationsToApply.push({ sheetName, col: headMap[col] + 1, type: 'STRICT_POS_INT' });
                     }
                 }
             } else if (sheetName === 'Turn Management') {
@@ -285,6 +285,18 @@ function planSchema_(ss) {
              for (const k in defaults) {
                  if (!existingSets.has(k)) {
                      plan.adminOptionsToAdd[k] = defaults[k];
+                 }
+             }
+
+             // Validate 'Vacation ACTIVE-window size' is a STRICT_POS_INT
+             const valCol = adMap['Value'];
+             for (let i = 1; i < adData.length; i++) {
+                 const key = String(adData[i][adMap['Setting']] || '').trim();
+                 if (key === 'Vacation ACTIVE-window size' || key === 'Default Vacation Week Capacity' || key === 'Default Vacation Week Target') {
+                     const val = adData[i][valCol];
+                     if (val !== '' && (!Number.isInteger(Number(val)) || Number(val) <= 0)) {
+                         plan.conflicts.push(`Existing invalid strictly positive integer found for Admin Option '${key}' at row ${i+1}`);
+                     }
                  }
              }
         }

@@ -34,6 +34,13 @@ function calculateNextQueueState_(currentState, roster, config) {
   let completionReason = "";
   let membershipChanged = false;
 
+  // Apply authoritative ordering before determining cursor/window
+  if (config.orderSource === 'seniority') {
+      roster.sort((a, b) => a.seniority - b.seniority);
+  } else if (config.orderSource === 'lottery') {
+      roster.sort((a, b) => a.lottery - b.lottery);
+  }
+
   if (config.action === 'INIT') {
     nextState["Current Queue Phase"] = config.phase;
     nextState["Current Queue Order Source"] = config.orderSource;

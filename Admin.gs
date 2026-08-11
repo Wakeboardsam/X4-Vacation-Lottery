@@ -38,7 +38,7 @@ function getAdminState_(token) {
             const weeks = [];
             for (let r = 1; r < data.length; r++) {
                  const row = data[r];
-                 const weekId = String(row[map['Vacation Week']] || '').trim();
+                 const weekId = String(row[map['Week Start Date']] || '').trim();
                  if (!weekId) continue;
 
                  const capacity = row[map['Capacity Override']] !== '' ? Number(row[map['Capacity Override']]) : adminOpts.capacity;
@@ -134,7 +134,12 @@ function beginVacationRound1_(token) {
         const _vCalcNext = typeof calculateNextQueueState_ === 'function' ? calculateNextQueueState_ : (typeof global !== 'undefined' && global.calculateNextQueueState_ ? global.calculateNextQueueState_ : (require('./QueueEngine.gs').calculateNextQueueState));
         const _vOpts = typeof getAdminOptions_ === 'function' ? getAdminOptions_ : (typeof global !== 'undefined' && global.getAdminOptions_ ? global.getAdminOptions_ : (require('./Vacation.gs').getAdminOptions));
 
-        const opts = _vOpts();
+        let opts;
+        try {
+            opts = _vOpts();
+        } catch(e) {
+            return _apiR(false, null, e.message); // Propagate windowSize config error nicely
+        }
         const roster = _vRoster(configMap['Active Year'], opts.target);
 
         let newState = { ...configMap, 'Current Phase': 'VACATION_SENIORITY', 'Current Vacation Round': '1' };
