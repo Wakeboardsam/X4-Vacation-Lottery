@@ -47,9 +47,9 @@ test('calculateNextQueueState: Seniority Forward Pass completes', () => {
         "Active Window Generation": 0
     };
     const roster = [
-        { participantId: 'p1', disposition: 'ELIGIBLE' },
+        { participantId: 'p1', seniority: 1, disposition: 'ELIGIBLE' },
         { participantId: 'p2', disposition: 'EXCLUDED' },
-        { participantId: 'p3', disposition: 'ELIGIBLE' }
+        { participantId: 'p3', seniority: 3, disposition: 'ELIGIBLE' }
     ];
 
     // Init queue
@@ -97,9 +97,9 @@ test('calculateNextQueueState: Serpentine reversal strict barrier', () => {
         "Active Window Generation": 0
     };
     const roster = [
-        { participantId: 'p19', disposition: 'ELIGIBLE' },
-        { participantId: 'p20', disposition: 'ELIGIBLE' },
-        { participantId: 'p21', disposition: 'ELIGIBLE' }
+        { participantId: 'p19', lottery: 19, disposition: 'ELIGIBLE' },
+        { participantId: 'p20', lottery: 20, disposition: 'ELIGIBLE' },
+        { participantId: 'p21', lottery: 21, disposition: 'ELIGIBLE' }
     ];
 
     // READ action to fill initial window

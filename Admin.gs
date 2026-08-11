@@ -30,6 +30,7 @@ function getAdminState_(token) {
             const _vAvail = typeof getWeekAvailability_ === 'function' ? getWeekAvailability_ : (typeof global !== 'undefined' && global.getWeekAvailability_ ? global.getWeekAvailability_ : (require('./Vacation.gs').getWeekAvailability));
             const _vOpts = typeof getAdminOptions_ === 'function' ? getAdminOptions_ : (typeof global !== 'undefined' && global.getAdminOptions_ ? global.getAdminOptions_ : (require('./Vacation.gs').getAdminOptions));
             const _vRoster = typeof getRosterForVacation_ === 'function' ? getRosterForVacation_ : (typeof global !== 'undefined' && global.getRosterForVacation_ ? global.getRosterForVacation_ : (require('./Vacation.gs').getRosterForVacation));
+            const _vNormalizeWeek = typeof normalizeWeekStartDate_ === 'function' ? normalizeWeekStartDate_ : (typeof global !== 'undefined' && global.normalizeWeekStartDate_ ? global.normalizeWeekStartDate_ : (require('./Vacation.gs').normalizeWeekStartDate));
 
             const adminOpts = _vOpts();
             const roster = _vRoster(configMap['Active Year'], adminOpts.target);
@@ -38,10 +39,14 @@ function getAdminState_(token) {
             const weeks = [];
             for (let r = 1; r < data.length; r++) {
                  const row = data[r];
-                 const weekId = String(row[map['Vacation Week']] || '').trim();
+                 const weekId = _vNormalizeWeek(row[map['Week Start Date']]);
                  if (!weekId) continue;
 
-                 const capacity = row[map['Capacity Override']] !== '' ? Number(row[map['Capacity Override']]) : adminOpts.capacity;
+                 const capacityRaw = String(row[map['Capacity Override']] === undefined ? '' : row[map['Capacity Override']]).trim();
+                 const capacity = capacityRaw === '' ? adminOpts.capacity : Number(capacityRaw);
+                 if (!Number.isInteger(capacity) || capacity <= 0) {
+                     throw new Error(`Capacity Override for week ${weekId} must be blank or a positive whole number.`);
+                 }
                  let assignedCount = 0;
 
                  for (const key of Object.keys(map)) {
@@ -84,7 +89,8 @@ function getAdminState_(token) {
             const activeTurns = JSON.parse(configMap['Current Active Window'] || '[]');
             const activeNames = activeTurns.map(t => {
                 const found = roster.find(r => r.participantId === t.participantId);
-                return found ? found.name : t.participantId;
+                if (!found) throw new Error(`ACTIVE queue contains unknown Participant ID '${t.participantId}'. Reconcile Turn Management before continuing.`);
+                return found.name;
             });
 
             stats = {
@@ -152,6 +158,8 @@ function beginVacationRound1_(token) {
         const updates = {
             "Current Phase": "VACATION_SENIORITY",
             "Current Vacation Round": "1",
+            "Current Queue Phase": result.nextState["Current Queue Phase"],
+            "Current Queue Order Source": result.nextState["Current Queue Order Source"],
             "Current Active Window": JSON.stringify(result.nextState["Current Active Window"]),
             "Current Directional Window": JSON.stringify(result.nextState["Current Directional Window"]),
             "Current Directional Window Completed": JSON.stringify(result.nextState["Current Directional Window Completed"]),

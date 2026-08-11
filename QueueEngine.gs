@@ -5,7 +5,7 @@
  * Calculates the next pure queue state.
  * @param {object} currentState The current parsed Config state.
  * @param {Array<object>} roster The list of ordered participant objects: { participantId, disposition }
- * @param {object} config Action configuration: { action: 'INIT' | 'READ' | 'COMPLETE' | 'RECONCILE', windowSize: positive_int, phase: str, orderSource: str, movementMode: 'FORWARD_ONLY' | 'SERPENTINE', completedTurnId: str }
+ * @param {object} config Action configuration: { action: 'INIT' | 'READ' | 'COMPLETE' | 'RECONCILE', windowSize: positive_int, phase: str, orderSource: str, movementMode: 'FORWARD_ONLY' | 'SERPENTINE', completedTurnId: str, preserveSkips?: boolean }
  * @returns {object} { nextState: object, queueComplete: boolean, completionReason: string }
  */
 function calculateNextQueueState_(currentState, roster, config) {
@@ -21,6 +21,33 @@ function calculateNextQueueState_(currentState, roster, config) {
       return { nextState: currentState, queueComplete: false, completionReason: "" };
   }
 
+  const orderSource = String(config.orderSource || currentState["Current Queue Order Source"] || '').trim().toLowerCase();
+  const orderField = orderSource === 'seniority' ? 'seniority' : (orderSource === 'lottery' ? 'lottery' : null);
+  let orderedRoster = roster.slice();
+  if (orderField) {
+      const seenPositions = {};
+      orderedRoster.forEach(participant => {
+          if (participant.disposition === 'EXCLUDED' || participant.disposition === 'PERMANENT_PASS') return;
+          const position = Number(participant[orderField]);
+          if (!Number.isInteger(position) || position <= 0) {
+              throw new Error(`Invalid ${orderSource} position for participant ${participant.participantId}. Positions must be positive whole numbers.`);
+          }
+          if (seenPositions[position]) {
+              throw new Error(`Duplicate ${orderSource} position ${position} for participants ${seenPositions[position]} and ${participant.participantId}.`);
+          }
+          seenPositions[position] = participant.participantId;
+      });
+      orderedRoster = orderedRoster.map((participant, index) => ({ participant, index })).sort((aEntry, bEntry) => {
+          const a = aEntry.participant;
+          const b = bEntry.participant;
+          const aExcluded = a.disposition === 'EXCLUDED' || a.disposition === 'PERMANENT_PASS';
+          const bExcluded = b.disposition === 'EXCLUDED' || b.disposition === 'PERMANENT_PASS';
+          if (aExcluded !== bExcluded) return aExcluded ? 1 : -1;
+          if (!aExcluded) return Number(a[orderField]) - Number(b[orderField]);
+          return aEntry.index - bEntry.index;
+      }).map(entry => entry.participant);
+  }
+
   // Clone current state for safe mutation
   const nextState = {
     ...currentState,
@@ -33,6 +60,7 @@ function calculateNextQueueState_(currentState, roster, config) {
   let queueComplete = false;
   let completionReason = "";
   let membershipChanged = false;
+  let completedAppearance = null;
 
   if (config.action === 'INIT') {
     nextState["Current Queue Phase"] = config.phase;
@@ -43,7 +71,7 @@ function calculateNextQueueState_(currentState, roster, config) {
     nextState["Current Active Window"] = [];
     nextState["Current Directional Window"] = [];
     nextState["Current Directional Window Completed"] = [];
-    nextState["Current Queue Skip State"] = {};
+    nextState["Current Queue Skip State"] = config.preserveSkips ? { ...currentState["Current Queue Skip State"] } : {};
     membershipChanged = true;
   } else if (config.action === 'COMPLETE') {
     const targetTurnId = config.completedTurnId;
@@ -53,6 +81,7 @@ function calculateNextQueueState_(currentState, roster, config) {
         // Stale or invalid completion, just return current state without changes
         return { nextState: currentState, queueComplete: false, completionReason: "" };
     }
+    completedAppearance = nextState["Current Active Window"][activeIdx];
 
     // Check if it belongs to frozen directional window
     if (nextState["Current Directional Window"].length > 0) {
@@ -78,7 +107,7 @@ function calculateNextQueueState_(currentState, roster, config) {
   // Loop to refill Active Window and handle reversals
   // Note: We only loop if we are NOT waiting at an endpoint barrier.
   let loops = 0; // prevent infinite loop if all skips
-  const maxLoops = roster.length * 2 + 5;
+  const maxLoops = orderedRoster.length * 2 + 5;
 
   while (loops < maxLoops) {
       loops++;
@@ -95,7 +124,7 @@ function calculateNextQueueState_(currentState, roster, config) {
               nextState["Current Directional Window Completed"] = [];
               nextState["Current Serpentine Direction"] = nextState["Current Serpentine Direction"] === "FORWARD" ? "BACKWARD" : "FORWARD";
               nextState["Current Queue Cycle"]++;
-              nextState["Current Queue Cursor"] = nextState["Current Serpentine Direction"] === "FORWARD" ? 0 : roster.length - 1;
+              nextState["Current Queue Cursor"] = nextState["Current Serpentine Direction"] === "FORWARD" ? 0 : orderedRoster.length - 1;
               membershipChanged = true; // New cycle, bump generation
           } else {
               // Barrier is still active, don't admit anyone new from the reverse direction
@@ -109,11 +138,11 @@ function calculateNextQueueState_(currentState, roster, config) {
       }
 
       // 3. Check if we reached the end of the roster
-      if (nextState["Current Queue Cursor"] < 0 || nextState["Current Queue Cursor"] >= roster.length) {
+      if (nextState["Current Queue Cursor"] < 0 || nextState["Current Queue Cursor"] >= orderedRoster.length) {
           if (config.movementMode === 'FORWARD_ONLY') {
               if (nextState["Current Active Window"].length === 0) {
                   queueComplete = true;
-                  completionReason = (roster.length === 0 || roster.every(r => r.disposition !== 'ELIGIBLE' && r.disposition !== 'SKIP_ONCE')) ? 'EMPTY_ROSTER' : 'FORWARD_PASS_COMPLETE';
+                  completionReason = (orderedRoster.length === 0 || orderedRoster.every(r => r.disposition !== 'ELIGIBLE' && r.disposition !== 'SKIP_ONCE')) ? 'EMPTY_ROSTER' : 'FORWARD_PASS_COMPLETE';
               }
               break;
           } else if (config.movementMode === 'SERPENTINE') {
@@ -127,10 +156,10 @@ function calculateNextQueueState_(currentState, roster, config) {
                   // If everyone finished (active window is 0), flip immediately
                   nextState["Current Serpentine Direction"] = nextState["Current Serpentine Direction"] === "FORWARD" ? "BACKWARD" : "FORWARD";
                   nextState["Current Queue Cycle"]++;
-                  nextState["Current Queue Cursor"] = nextState["Current Serpentine Direction"] === "FORWARD" ? 0 : roster.length - 1;
+                  nextState["Current Queue Cursor"] = nextState["Current Serpentine Direction"] === "FORWARD" ? 0 : orderedRoster.length - 1;
                   membershipChanged = true;
                   // If roster is completely empty, queue is complete
-                  if (roster.length === 0) {
+                  if (orderedRoster.length === 0) {
                       queueComplete = true;
                       completionReason = "EMPTY_ROSTER";
                       break;
@@ -141,34 +170,38 @@ function calculateNextQueueState_(currentState, roster, config) {
       }
 
       // 4. Try to admit the participant at cursor
-      if (roster.length === 0) break; // safeguard
+      if (orderedRoster.length === 0) break; // safeguard
 
       const pIndex = nextState["Current Queue Cursor"];
-      const p = roster[pIndex];
+      const p = orderedRoster[pIndex];
       const pDisposition = p.disposition;
 
       if (pDisposition === 'ELIGIBLE' || pDisposition === 'SKIP_ONCE') {
-          // If SKIP_ONCE, check if they have pending skip counts
-          if (pDisposition === 'SKIP_ONCE') {
-              let skipCounts = nextState["Current Queue Skip State"][p.participantId] || 0;
-              if (skipCounts > 0) {
-                  skipCounts--;
-                  if (skipCounts === 0) {
-                      delete nextState["Current Queue Skip State"][p.participantId];
-                  } else {
-                      nextState["Current Queue Skip State"][p.participantId] = skipCounts;
-                  }
-                  advanceCursor();
-                  continue; // Consumed a skip, do not admit, move to next
-              }
-          }
-
           // Check if already in active window (e.g., to prevent duplicate across directions or general bugs)
           if (nextState["Current Active Window"].some(a => a.participantId === p.participantId)) {
               // They are already in the window (e.g., duplicate).
               // Wait, a single participant should only be added once.
               // So if they are already in the window, we just advance cursor?
               // Usually they shouldn't be reached again until a reversal.
+              advanceCursor();
+              continue;
+          }
+
+          // Pending skips are durable state. Consume one only when this participant reaches
+          // an otherwise-admissible appearance and is not already concurrently ACTIVE.
+          let skipCounts = Number(nextState["Current Queue Skip State"][p.participantId] || 0);
+          if (skipCounts > 0) {
+              const sameAppearance = completedAppearance &&
+                  completedAppearance.participantId === p.participantId &&
+                  Number(completedAppearance.cycle) === Number(nextState["Current Queue Cycle"]) &&
+                  String(completedAppearance.direction) === String(nextState["Current Serpentine Direction"]);
+              if (sameAppearance) {
+                  advanceCursor();
+                  continue;
+              }
+              skipCounts--;
+              if (skipCounts === 0) delete nextState["Current Queue Skip State"][p.participantId];
+              else nextState["Current Queue Skip State"][p.participantId] = skipCounts;
               advanceCursor();
               continue;
           }
@@ -193,10 +226,10 @@ function calculateNextQueueState_(currentState, roster, config) {
 
   // 5. Final completion checks
   if (!queueComplete && nextState["Current Active Window"].length === 0) {
-      if (config.movementMode === 'SERPENTINE' && roster.length > 0 && roster.every(r => r.disposition !== 'ELIGIBLE' && r.disposition !== 'SKIP_ONCE')) {
+      if (config.movementMode === 'SERPENTINE' && orderedRoster.length > 0 && orderedRoster.every(r => r.disposition !== 'ELIGIBLE' && r.disposition !== 'SKIP_ONCE')) {
            queueComplete = true;
            completionReason = "NO_ELIGIBLE_PARTICIPANTS";
-      } else if (roster.length === 0) {
+      } else if (orderedRoster.length === 0) {
            queueComplete = true;
            completionReason = "EMPTY_ROSTER";
       }

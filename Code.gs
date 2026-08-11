@@ -37,6 +37,7 @@ function apiLoginParticipant(pin) {
         return loginParticipant_(pin);
     } catch(e) {
         Logger.log(e);
+        if (e.code === 'PARTICIPANT_ID_CONFLICT') return apiResponse_(false, null, e.participantMessage);
         return apiResponse_(false, null, 'An internal error occurred.');
     }
 }
@@ -50,6 +51,7 @@ function apiGetParticipantVacationData(token) {
         const _vAvail = typeof getWeekAvailability_ === 'function' ? getWeekAvailability_ : (typeof global !== 'undefined' && global.getWeekAvailability_ ? global.getWeekAvailability_ : (require('./Vacation.gs').getWeekAvailability));
         const _vOpts = typeof getAdminOptions_ === 'function' ? getAdminOptions_ : (typeof global !== 'undefined' && global.getAdminOptions_ ? global.getAdminOptions_ : (require('./Vacation.gs').getAdminOptions));
         const _vRoster = typeof getRosterForVacation_ === 'function' ? getRosterForVacation_ : (typeof global !== 'undefined' && global.getRosterForVacation_ ? global.getRosterForVacation_ : (require('./Vacation.gs').getRosterForVacation));
+        const _vNormalizeWeek = typeof normalizeWeekStartDate_ === 'function' ? normalizeWeekStartDate_ : (typeof global !== 'undefined' && global.normalizeWeekStartDate_ ? global.normalizeWeekStartDate_ : (require('./Vacation.gs').normalizeWeekStartDate));
         const _readC = typeof readConfigState_ === 'function' ? readConfigState_ : (typeof global !== 'undefined' && global.readConfigState_ ? global.readConfigState_ : (require('./State.gs').readConfigState));
 
         const configMap = _readC();
@@ -59,15 +61,18 @@ function apiGetParticipantVacationData(token) {
         const adminOpts = _vOpts();
         const roster = _vRoster(configMap['Active Year'], adminOpts.target);
         const pRoster = roster.find(r => r.participantId === proj.participantId);
+        if (!pRoster) throw new Error('Authenticated Participant ID is not present in the vacation roster.');
 
         const { data, map } = _vAvail();
         const weeks = [];
         for (let r = 1; r < data.length; r++) {
              const row = data[r];
-             const weekId = String(row[map['Vacation Week']] || '').trim();
+             const weekId = _vNormalizeWeek(row[map['Week Start Date']]);
              if (!weekId) continue;
 
-             const capacity = row[map['Capacity Override']] !== '' ? Number(row[map['Capacity Override']]) : adminOpts.capacity;
+             const capacityRaw = String(row[map['Capacity Override']] === undefined ? '' : row[map['Capacity Override']]).trim();
+             const capacity = capacityRaw === '' ? adminOpts.capacity : Number(capacityRaw);
+             if (!Number.isInteger(capacity) || capacity <= 0) throw new Error(`Capacity Override for week ${weekId} must be blank or a positive whole number.`);
              let assignedCount = 0;
              let assignedToMe = false;
 
@@ -103,6 +108,8 @@ function apiGetParticipantVacationData(token) {
         }, 'Vacation data retrieved.');
     } catch(e) {
         Logger.log(e);
+        if (e.code === 'PARTICIPANT_ID_CONFLICT') return apiResponse_(false, null, e.participantMessage);
+        if (e.code === 'ADMIN_CONFIGURATION_ERROR') return apiResponse_(false, null, 'Vacation selection is temporarily unavailable because an administrator setting requires correction. No changes were made.');
         return apiResponse_(false, null, 'An internal error occurred: ' + e.message);
     }
 }
@@ -132,6 +139,7 @@ function apiResolveParticipant(token) {
         return apiResponse_(false, null, 'Session expired or invalid');
     } catch(e) {
          Logger.log(e);
+         if (e.code === 'PARTICIPANT_ID_CONFLICT') return apiResponse_(false, null, e.participantMessage);
          return apiResponse_(false, null, 'An internal error occurred.');
     }
 }
@@ -143,6 +151,7 @@ function apiGetAdminState(token) {
         return getAdminState_(token);
     } catch(e) {
         Logger.log(e);
+        if (e.code === 'PARTICIPANT_ID_CONFLICT') return apiResponse_(false, null, e.participantMessage);
         return apiResponse_(false, null, 'An internal error occurred.');
     }
 }
@@ -189,6 +198,7 @@ function apiSubmitVacation(token, turnId, selections) {
         return submitVacation_(proj.participantId, turnId, selections);
     } catch(e) {
         Logger.log(e);
+        if (e.code === 'PARTICIPANT_ID_CONFLICT') return apiResponse_(false, null, e.participantMessage);
         return apiResponse_(false, null, 'An internal error occurred.');
     }
 }
@@ -202,4 +212,16 @@ function apiInspectSchema(token) {
         Logger.log(e);
         return apiResponse_(false, null, 'An internal error occurred.');
     }
+}
+
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = {
+        apiLoginParticipant,
+        apiGetParticipantVacationData,
+        apiResolveParticipant,
+        apiSubmitVacation,
+        apiGetAdminState,
+        apiBeginVacationRound1,
+        apiEndVacationEarly
+    };
 }

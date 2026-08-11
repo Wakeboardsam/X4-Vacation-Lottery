@@ -66,12 +66,77 @@ function getDuplicates_(arr) {
   return Array.from(dupes);
 }
 
+/**
+ * Throws a schema error when required headers are absent.
+ * @param {object} map Header map
+ * @param {string[]} required Required header names
+ * @param {string} sheetName Display name for the error
+ */
+function requireHeaders_(map, required, sheetName) {
+  const missing = required.filter(header => map[header] === undefined);
+  if (missing.length > 0) {
+    const err = new Error(`Schema conflict in ${sheetName}: missing required header(s): ${missing.join(', ')}`);
+    err.code = 'SCHEMA_CONFLICT';
+    throw err;
+  }
+}
+
+/**
+ * Validates stable participant identities for every populated Turn Management row.
+ * PIN remains an authentication credential and is never accepted as identity.
+ * @param {any[][]} data Turn Management matrix
+ * @param {object} map Header map
+ */
+function validateParticipantIds_(data, map) {
+  requireHeaders_(map, ['Name', 'Participant ID', 'PIN'], 'Turn Management');
+
+  const blankNames = [];
+  const namesById = {};
+  const duplicateNames = {};
+
+  for (let r = 1; r < data.length; r++) {
+    const name = String(data[r][map['Name']] || '').trim();
+    const participantId = String(data[r][map['Participant ID']] || '').trim();
+    const pin = String(data[r][map['PIN']] || '').trim();
+    const populated = name !== '' || participantId !== '' || pin !== '';
+    if (!populated) continue;
+
+    const displayName = name || '(unnamed participant)';
+    if (!participantId) {
+      blankNames.push(displayName);
+      continue;
+    }
+
+    if (namesById[participantId] !== undefined) {
+      if (!duplicateNames[participantId]) duplicateNames[participantId] = [namesById[participantId]];
+      duplicateNames[participantId].push(displayName);
+    } else {
+      namesById[participantId] = displayName;
+    }
+  }
+
+  const details = [];
+  if (blankNames.length > 0) details.push(`blank Participant ID: ${blankNames.join(', ')}`);
+  for (const participantId in duplicateNames) {
+    details.push(`duplicate Participant ID '${participantId}': ${duplicateNames[participantId].join(', ')}`);
+  }
+
+  if (details.length > 0) {
+    const err = new Error(`Participant roster identity conflict (${details.join('; ')}). Correct Turn Management before continuing.`);
+    err.code = 'PARTICIPANT_ID_CONFLICT';
+    err.participantMessage = 'Vacation selection is temporarily unavailable because the participant roster requires administrator correction. No changes were made.';
+    throw err;
+  }
+}
+
 // Node.js module export for testing
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     apiResponse: apiResponse_,
     getHeaderMap: getHeaderMap_,
     findRowIndex: findRowIndex_,
-    getDuplicates: getDuplicates_
+    getDuplicates: getDuplicates_,
+    requireHeaders: requireHeaders_,
+    validateParticipantIds: validateParticipantIds_
   };
 }

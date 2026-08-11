@@ -7,6 +7,7 @@ const SESSION_EXPIRY_MS = 6 * 60 * 60 * 1000; // 6 hours
 // Dependency injection workaround for Apps Script sharing environment vs Node tests
 const _apiResponse = typeof apiResponse_ === 'function' ? apiResponse_ : (typeof global !== 'undefined' && global.apiResponse_ ? global.apiResponse_ : (require('./Utils.gs').apiResponse));
 const _getHMap2 = typeof getHeaderMap_ === 'function' ? getHeaderMap_ : (typeof global !== 'undefined' && global.getHeaderMap_ ? global.getHeaderMap_ : (require('./Utils.gs').getHeaderMap));
+const _validateParticipantIds2 = typeof validateParticipantIds_ === 'function' ? validateParticipantIds_ : (typeof global !== 'undefined' && global.validateParticipantIds_ ? global.validateParticipantIds_ : (require('./Utils.gs').validateParticipantIds));
 
 /**
  * Editor-only function to set the administrator access code.
@@ -64,6 +65,12 @@ function loginParticipant_(pin) {
     const data = sheet.getDataRange().getValues();
     const map = _getHMap2(data);
 
+    try {
+        _validateParticipantIds2(data, map);
+    } catch (identityErr) {
+        return _apiResponse(false, null, identityErr.participantMessage || 'Vacation selection is temporarily unavailable because the participant roster requires administrator correction. No changes were made.');
+    }
+
     if (map['PIN'] === undefined) {
          return _apiResponse(false, null, 'System missing PIN configuration');
     }
@@ -91,6 +98,7 @@ function loginParticipant_(pin) {
     }
 
     const participantName = data[matchIdx][map['Name']];
+    const participantId = String(data[matchIdx][map['Participant ID']] || '').trim();
     const activeForYear = Boolean(data[matchIdx][map['Active for Year']]);
 
     // Read high level state
@@ -119,7 +127,7 @@ function loginParticipant_(pin) {
 
         const sessionData = {
             expires: Date.now() + SESSION_EXPIRY_MS,
-            pin: pinStr // we store the lookup criteria to reread fresh data later
+            participantId: participantId
         };
 
         props.setProperty(SESSION_PREFIX_USER + tokenHashHex, JSON.stringify(sessionData));
@@ -130,6 +138,7 @@ function loginParticipant_(pin) {
     return _apiResponse(true, {
         token: rawToken,
         participant: {
+            participantId: participantId,
             name: participantName,
             activeYear: configMap['Active Year'],
             setupState: configMap['Setup State'],
@@ -176,10 +185,17 @@ function resolveParticipantSession_(token) {
     const data = sheet.getDataRange().getValues();
     const map = _getHMap2(data);
 
+    try {
+        _validateParticipantIds2(data, map);
+    } catch (identityErr) {
+        props.deleteProperty(SESSION_PREFIX_USER + hexForResolve);
+        throw identityErr;
+    }
+
     let matchRow = null;
     let duplicateCount = 0;
     for (let r = 1; r < data.length; r++) {
-         if (String(data[r][map['PIN']] || '').trim() === sess.pin) {
+         if (String(data[r][map['Participant ID']] || '').trim() === String(sess.participantId || '').trim()) {
               matchRow = data[r];
               duplicateCount++;
          }
@@ -201,6 +217,7 @@ function resolveParticipantSession_(token) {
     }
 
     return {
+        participantId: String(matchRow[map['Participant ID']] || '').trim(),
         name: matchRow[map['Name']],
         activeYear: configMap['Active Year'],
         setupState: configMap['Setup State'],

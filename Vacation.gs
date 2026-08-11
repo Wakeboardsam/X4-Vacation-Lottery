@@ -10,44 +10,78 @@ const _vReqAuth = typeof resolveParticipantSession_ === 'function' ? resolvePart
 const _vReqAdmin = typeof requireAdmin_ === 'function' ? requireAdmin_ : (typeof global !== 'undefined' && global.requireAdmin_ ? global.requireAdmin_ : (require('./Auth.gs').requireAdmin));
 const _vHMap = typeof getHeaderMap_ === 'function' ? getHeaderMap_ : (typeof global !== 'undefined' && global.getHeaderMap_ ? global.getHeaderMap_ : (require('./Utils.gs').getHeaderMap));
 const _vFindRow = typeof findRowIndex_ === 'function' ? findRowIndex_ : (typeof global !== 'undefined' && global.findRowIndex_ ? global.findRowIndex_ : (require('./Utils.gs').findRowIndex));
+const _vRequireHeaders = typeof requireHeaders_ === 'function' ? requireHeaders_ : (typeof global !== 'undefined' && global.requireHeaders_ ? global.requireHeaders_ : (require('./Utils.gs').requireHeaders));
+const _vValidateParticipantIds = typeof validateParticipantIds_ === 'function' ? validateParticipantIds_ : (typeof global !== 'undefined' && global.validateParticipantIds_ ? global.validateParticipantIds_ : (require('./Utils.gs').validateParticipantIds));
 const _vCalcNext = typeof calculateNextQueueState_ === 'function' ? calculateNextQueueState_ : (typeof global !== 'undefined' && global.calculateNextQueueState_ ? global.calculateNextQueueState_ : (require('./QueueEngine.gs').calculateNextQueueState));
+
+function parseRequiredPositiveWholeNumber_(value, label) {
+    const raw = String(value === null || value === undefined ? '' : value).trim();
+    const parsed = Number(raw);
+    if (raw === '' || !Number.isInteger(parsed) || parsed <= 0) {
+        const err = new Error(`${label} must be a positive whole number. Correct Admin Options before continuing.`);
+        err.code = 'ADMIN_CONFIGURATION_ERROR';
+        throw err;
+    }
+    return parsed;
+}
+
+function normalizeWeekStartDate_(value) {
+    if (Object.prototype.toString.call(value) === '[object Date]' && !isNaN(value.getTime())) {
+        if (typeof Utilities !== 'undefined' && typeof Utilities.formatDate === 'function') {
+            let timeZone = 'Etc/UTC';
+            const ss = SpreadsheetApp.getActiveSpreadsheet();
+            if (ss && typeof ss.getSpreadsheetTimeZone === 'function') timeZone = ss.getSpreadsheetTimeZone();
+            return Utilities.formatDate(value, timeZone, 'yyyy-MM-dd');
+        }
+        const year = value.getFullYear();
+        const month = String(value.getMonth() + 1).padStart(2, '0');
+        const day = String(value.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    }
+    return String(value === null || value === undefined ? '' : value).trim();
+}
 
 function getAdminOptions_() {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const sheet = ss.getSheetByName('Admin Options');
-    if (!sheet) return { target: 9, capacity: 4, windowSize: 3 };
+    if (!sheet) throw new Error('Admin Options sheet is missing. Initialize the workbook before continuing.');
 
     const data = sheet.getDataRange().getValues();
     const map = _vHMap(data);
-    let target = 9;
-    let capacity = 4;
-    let windowSize = 3;
+    _vRequireHeaders(map, ['Setting', 'Value'], 'Admin Options');
+    const settings = {};
 
     if (map['Setting'] !== undefined && map['Value'] !== undefined) {
         for (let i = 1; i < data.length; i++) {
             const key = String(data[i][map['Setting']]).trim();
-            if (key === 'Default Vacation Week Target') {
-                target = Number(data[i][map['Value']]) || 9;
-            } else if (key === 'Default Vacation Week Capacity') {
-                capacity = Number(data[i][map['Value']]) || 4;
-            } else if (key === 'Vacation ACTIVE-window size') {
-                windowSize = Number(data[i][map['Value']]) || 3;
-            }
+            if (key) settings[key] = data[i][map['Value']];
         }
     }
+    const target = parseRequiredPositiveWholeNumber_(settings['Default Vacation Week Target'], 'Default Vacation Week Target');
+    const capacity = parseRequiredPositiveWholeNumber_(settings['Default Vacation Week Capacity'], 'Default Vacation Week Capacity');
+    const windowSize = parseRequiredPositiveWholeNumber_(settings['Vacation ACTIVE-window size'], 'Vacation ACTIVE-window size');
     return { target, capacity, windowSize };
 }
 
 function getRosterForVacation_(activeYear, globalTarget) {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const sheet = ss.getSheetByName('Turn Management');
+    if (!sheet) throw new Error('Turn Management sheet is missing.');
     const data = sheet.getDataRange().getValues();
     const map = _vHMap(data);
+    _vRequireHeaders(map, [
+        'Name', 'Participant ID', 'PIN', 'Active for Year', 'Vacation Phase Enabled',
+        'Vacation Week Target Override', 'Seniority Position', 'Lottery Position',
+        'Had Spring Break Last Year', 'Had Christmas Week Last Year'
+    ], 'Turn Management');
+    _vValidateParticipantIds(data, map);
 
     const roster = [];
     for (let i = 1; i < data.length; i++) {
-        const pId = String(data[i][map['PIN']] || '').trim();
-        if (!pId) continue;
+        const pId = String(data[i][map['Participant ID']] || '').trim();
+        const name = String(data[i][map['Name']] || '').trim();
+        const pin = String(data[i][map['PIN']] || '').trim();
+        if (!name && !pId && !pin) continue;
 
         const active = String(data[i][map['Active for Year']] || '').toLowerCase() === 'true';
         const phaseEnabled = String(data[i][map['Vacation Phase Enabled']] || '').toLowerCase() === 'true';
@@ -58,13 +92,13 @@ function getRosterForVacation_(activeYear, globalTarget) {
         }
 
         let override = String(data[i][map['Vacation Week Target Override']] || '').trim();
-        const target = override === '' ? globalTarget : Number(override);
+        const target = override === '' ? globalTarget : parseRequiredPositiveWholeNumber_(override, `Vacation Week Target Override for ${name || pId}`);
 
         roster.push({
             participantId: pId,
-            name: data[i][map['Name']],
-            seniority: Number(data[i][map['Seniority Position']] || 999),
-            lottery: Number(data[i][map['Lottery Position']] || 999),
+            name: name,
+            seniority: Number(String(data[i][map['Seniority Position']] || '').trim()),
+            lottery: Number(String(data[i][map['Lottery Position']] || '').trim()),
             target: target,
             hadSpringBreak: String(data[i][map['Had Spring Break Last Year']] || '').toLowerCase() === 'true',
             hadChristmas: String(data[i][map['Had Christmas Week Last Year']] || '').toLowerCase() === 'true',
@@ -82,6 +116,7 @@ function getWeekAvailability_() {
 
     const data = sheet.getDataRange().getValues();
     const map = _vHMap(data);
+    _vRequireHeaders(map, ['Week Start Date', 'Prime Classification', 'Special Week', 'Capacity Override'], 'Week Availability');
     return { data, map, sheet };
 }
 
@@ -94,6 +129,9 @@ function submitVacation_(participantId, submittedTurnId, selections) {
         const config = _vState();
         if (config['Current Phase'] !== 'VACATION_SENIORITY' && config['Current Phase'] !== 'VACATION_RANDOM') {
             return _vApi(false, null, 'Vacation phase is not active.');
+        }
+        if (config['Phase Ready State'] === 'READY_WEEKEND') {
+            return _vApi(false, null, 'Vacation selection is closed. Weekend is ready for the administrator to start.');
         }
 
         const activeWindow = JSON.parse(config['Current Active Window'] || '[]');
@@ -127,7 +165,7 @@ function submitVacation_(participantId, submittedTurnId, selections) {
             for (const col of personCols) {
                 if (String(weekData[r][weekMap[col]] || '').trim() === pRoster.name) {
                      currentSelections++;
-                     existingWeeks.add(String(weekData[r][weekMap['Week Start Date']] || '').trim());
+                     existingWeeks.add(normalizeWeekStartDate_(weekData[r][weekMap['Week Start Date']]));
                 }
             }
         }
@@ -140,7 +178,12 @@ function submitVacation_(participantId, submittedTurnId, selections) {
              return _vApi(false, null, 'You must select exactly one or two weeks.');
         }
 
-        if (currentSelections + selections.length > pRoster.target) {
+        const normalizedSelections = selections.map(normalizeWeekStartDate_);
+        if (normalizedSelections.some(value => value === '')) {
+            return _vApi(false, null, 'Every selected vacation week must have a valid Week Start Date.');
+        }
+
+        if (currentSelections + normalizedSelections.length > pRoster.target) {
              return _vApi(false, null, 'Selections exceed your vacation target.');
         }
 
@@ -150,15 +193,21 @@ function submitVacation_(participantId, submittedTurnId, selections) {
         let requiredMaxPersonCol = maxPersonColFound;
 
         // Validate each selection
-        for (const selWeek of selections) {
+        for (const selWeek of normalizedSelections) {
              if (existingWeeks.has(selWeek)) {
                  return _vApi(false, null, `You already hold week ${selWeek}.`);
              }
-             if (selections.filter(s => s === selWeek).length > 1) {
+             if (normalizedSelections.filter(s => s === selWeek).length > 1) {
                  return _vApi(false, null, `Duplicate selection for week ${selWeek}.`);
              }
 
-             const wRowIndex = _vFindRow(weekData, weekMap['Week Start Date'], selWeek);
+             let wRowIndex = -1;
+             for (let rowIndex = 1; rowIndex < weekData.length; rowIndex++) {
+                 if (normalizeWeekStartDate_(weekData[rowIndex][weekMap['Week Start Date']]) === selWeek) {
+                     wRowIndex = rowIndex;
+                     break;
+                 }
+             }
              if (wRowIndex === -1) {
                  return _vApi(false, null, `Week ${selWeek} not found.`);
              }
@@ -167,7 +216,7 @@ function submitVacation_(participantId, submittedTurnId, selections) {
              const primeType = String(row[weekMap['Prime Classification']] || '').trim();
              const specialType = String(row[weekMap['Special Week']] || '').trim();
              const capOverride = String(row[weekMap['Capacity Override']] || '').trim();
-             const capacity = capOverride === '' ? globalCapacity : Number(capOverride);
+             const capacity = capOverride === '' ? globalCapacity : parseRequiredPositiveWholeNumber_(capOverride, `Capacity Override for week ${selWeek}`);
 
              if (primeType === 'Prime') primeCount++;
 
@@ -206,12 +255,12 @@ function submitVacation_(participantId, submittedTurnId, selections) {
         if (primeCount > 1) {
              return _vApi(false, null, 'You may only select a maximum of one Prime week per turn.');
         }
-        if (primeCount === 1 && selections.length > 1) {
+        if (primeCount === 1 && normalizedSelections.length > 1) {
              return _vApi(false, null, 'A Prime week must stand alone (no additional Non-Prime picks).');
         }
 
         // Capture original week data for potential rollback
-        const originalWeekData = JSON.parse(JSON.stringify(weekData));
+        const originalWeekData = weekData.map(row => row.slice());
 
         // Passed all validation. Need to expand capacity columns if needed
         if (requiredMaxPersonCol > maxPersonColFound) {
@@ -246,12 +295,10 @@ function submitVacation_(participantId, submittedTurnId, selections) {
         }
 
         // Determine Next Queue State
-        const twoNonPrime = primeCount === 0 && selections.length === 2;
-        let newSelectionsTotal = currentSelections + selections.length;
+        const twoNonPrime = primeCount === 0 && normalizedSelections.length === 2;
+        let newSelectionsTotal = currentSelections + normalizedSelections.length;
         if (newSelectionsTotal >= pRoster.target) {
              pRoster.disposition = 'COMPLETE_FOR_PHASE';
-        } else if (twoNonPrime) {
-             pRoster.disposition = 'SKIP_ONCE';
         }
 
         const queueConfig = {
@@ -301,13 +348,6 @@ function submitVacation_(participantId, submittedTurnId, selections) {
 
         const { nextState, queueComplete } = _vCalcNext(parsedState, roster, queueConfig);
 
-        // Fix for skips: if we just generated a skip, ensure it isn't consumed by the current window refill step
-        // QueueEngine logic doesn't differentiate between old skips and newly generated ones for the currently processing turn.
-        // It shouldn't consume the skip until the NEXT turn.
-        if (twoNonPrime) {
-             nextState["Current Queue Skip State"][participantId] = parsedState["Current Queue Skip State"][participantId];
-        }
-
         // Phase transition checks
         if (queueComplete) {
             if (config['Current Phase'] === 'VACATION_SENIORITY') {
@@ -322,9 +362,6 @@ function submitVacation_(participantId, submittedTurnId, selections) {
                  nextState["Current Directional Window Completed"] = [];
                  nextState["Current Queue Cursor"] = 0;
                  nextState["Current Queue Cycle"] = 0;
-
-                 // Preserve skips for next phase
-                 let nextSkips = { ...nextState["Current Queue Skip State"] };
 
                  const p2Config = {
                     movementMode: 'SERPENTINE',
@@ -342,9 +379,13 @@ function submitVacation_(participantId, submittedTurnId, selections) {
                  }
                  const p2State = _vCalcNext(nextState, roster, p2Config);
                  Object.assign(nextState, p2State.nextState);
-
-                 // Restore skips - QueueEngine INIT wipes them intentionally if we don't carry them forward properly
-                 nextState["Current Queue Skip State"] = nextSkips;
+                 nextState['Current Vacation Round'] = String(1 + Number(nextState['Current Queue Cycle'] || 1));
+                 if (p2State.queueComplete) {
+                     nextState['Phase Ready State'] = 'READY_WEEKEND';
+                     nextState["Current Active Window"] = [];
+                     nextState["Current Directional Window"] = [];
+                     nextState["Current Directional Window Completed"] = [];
+                 }
 
             } else {
                  // Fully complete
@@ -364,6 +405,8 @@ function submitVacation_(participantId, submittedTurnId, selections) {
             "Current Phase": nextState["Current Phase"],
             "Phase Ready State": nextState["Phase Ready State"],
             "Current Vacation Round": nextState["Current Vacation Round"],
+            "Current Queue Phase": nextState["Current Queue Phase"],
+            "Current Queue Order Source": nextState["Current Queue Order Source"],
             "Current Active Window": JSON.stringify(nextState["Current Active Window"]),
             "Current Directional Window": JSON.stringify(nextState["Current Directional Window"]),
             "Current Directional Window Completed": JSON.stringify(nextState["Current Directional Window Completed"]),
@@ -382,9 +425,17 @@ function submitVacation_(participantId, submittedTurnId, selections) {
         try {
             _vWrite(updates);
         } catch(writeErr) {
-            // Rollback week assignments if config write fails
-            weekSheet.getRange(1, 1, originalWeekData.length, originalWeekData[0].length).setValues(originalWeekData);
-            throw new Error('Config save failed. Rollback applied. ' + writeErr.message);
+            try {
+                weekSheet.getRange(1, 1, originalWeekData.length, originalWeekData[0].length).setValues(originalWeekData);
+                if (typeof Logger !== 'undefined' && Logger.log) {
+                    Logger.log('Vacation submission failed while saving queue state. Week Availability rollback succeeded; no changes were committed. ' + writeErr.message);
+                }
+                return _vApi(false, null, 'Your vacation selection could not be saved. No changes were made. Please try again.');
+            } catch(rollbackErr) {
+                const fatal = new Error('Fatal consistency error: queue state save failed and Week Availability rollback also failed. Stop vacation processing and inspect the workbook before continuing. Config error: ' + writeErr.message + '; rollback error: ' + rollbackErr.message);
+                fatal.code = 'FATAL_CONSISTENCY_ERROR';
+                throw fatal;
+            }
         }
 
         return _vApi(true, {
@@ -393,9 +444,9 @@ function submitVacation_(participantId, submittedTurnId, selections) {
         }, 'Vacation weeks successfully selected.');
 
     } catch(e) {
-        if (e.message.includes('Rollback applied')) {
-            throw e; // Fatal consistency errors should blow up as requested
-        }
+        if (e.code === 'FATAL_CONSISTENCY_ERROR') throw e;
+        if (e.code === 'PARTICIPANT_ID_CONFLICT') return _vApi(false, null, e.participantMessage);
+        if (e.code === 'ADMIN_CONFIGURATION_ERROR') return _vApi(false, null, 'Vacation selection is temporarily unavailable because an administrator setting requires correction. No changes were made.');
         return _vApi(false, null, 'Error: ' + e.message);
     } finally {
         lock.releaseLock();
@@ -407,6 +458,7 @@ if (typeof module !== 'undefined' && module.exports) {
         submitVacation: submitVacation_,
         getRosterForVacation: getRosterForVacation_,
         getAdminOptions: getAdminOptions_,
-        getWeekAvailability: getWeekAvailability_
+        getWeekAvailability: getWeekAvailability_,
+        normalizeWeekStartDate: normalizeWeekStartDate_
     };
 }

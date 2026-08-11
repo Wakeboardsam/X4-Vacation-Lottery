@@ -124,7 +124,7 @@ test('Auth: Logout invalidates session', () => {
     assert.equal(resolveAdminSession(token), false);
 });
 
-test('Auth: Session resume fails closed on newly introduced duplicate PIN', () => {
+test('Auth: Session resume fails closed on newly introduced duplicate Participant ID', () => {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const tmSheet = ss.getSheetByName('Turn Management');
     const row = ['DupeTest', 'pid5', '9999', '', true, '', ''];
@@ -133,10 +133,9 @@ test('Auth: Session resume fails closed on newly introduced duplicate PIN', () =
     const res = loginParticipant('9999');
     assert.equal(res.ok, true);
 
-    // Add duplicate
-    const dupeRow = ['Dupe2', 'pid6', '9999', '', true, '', ''];
+    // Add a duplicate stable identity with a different PIN.
+    const dupeRow = ['Dupe2', 'pid5', '8888', '', true, '', ''];
     tmSheet.appendRow(dupeRow);
 
-    const proj = resolveParticipantSession(res.data.token);
-    assert.equal(proj, null, 'Session should fail closed when duplicate introduced');
+    assert.throws(() => resolveParticipantSession(res.data.token), /Participant roster identity conflict/);
 });
