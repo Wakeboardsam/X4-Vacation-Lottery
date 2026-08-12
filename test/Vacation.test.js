@@ -178,14 +178,9 @@ test('Vacation: Atomic Rollback Behavior - failed write resets matrix', () => {
     try {
         global.writeConfigState_ = () => { throw new Error('Simulated write failure'); };
 
-        let threwFatalError = false;
-        try {
-            submitVacation('1111', 't1', ['W1', 'W2']);
-        } catch(e) {
-            threwFatalError = true;
-            assert.match(e.message, /Rollback applied/);
-        }
-        assert.ok(threwFatalError, "Expected fatal rollback error to be thrown");
+        const res = submitVacation('1111', 't1', ['W1', 'W2']);
+        assert.equal(res.ok, false);
+        assert.match(res.message, /Your vacation selection could not be saved/);
 
         // Verify assignments rolled back
         const { data, map } = getWeekAvailability();
@@ -333,4 +328,130 @@ test('Admin: endVacationEarly success', () => {
     const config = readConfigState();
     assert.equal(config['Current Phase'], 'VACATION_SENIORITY'); // Doesn't change
     assert.equal(config['Phase Ready State'], 'READY_WEEKEND');
+});
+test('Vacation: One Prime and one Non-Prime creates no skip', () => {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const tm = ss.getSheetByName('Turn Management');
+    tm.appendRow(['Charlie', '4444', '4444', '', 'TRUE', '1', '1', 'TRUE', '9', '']);
+    tm.appendRow(['Dave', '5555', '5555', '', 'TRUE', '2', '2', 'TRUE', '9', '']);
+
+    const wa = ss.getSheetByName('Week Availability');
+    wa.appendRow(['2025-02-01', 'Prime', 'None', '4', '', '', '', '']);
+    wa.appendRow(['2025-02-08', 'Non-Prime', 'None', '4', '', '', '', '']);
+
+    writeConfigState({
+        'Current Phase': 'VACATION_SENIORITY',
+        'Current Queue Phase': 'VACATION_SENIORITY',
+        'Current Vacation Round': '1',
+        'Active Year': '2025',
+        'Current Queue Cursor': '0',
+        'Current Active Window': JSON.stringify([{
+             turnId: 't2', participantId: '4444', cycle: 0, direction: 'FORWARD', position: 1
+        }]),
+        'Current Queue Skip State': '{}'
+    });
+
+    global.resolveParticipantSession_ = () => ({ participantId: '4444', name: 'Charlie' });
+    try {
+        const res = submitVacation('4444', 't2', ['2025-02-01', '2025-02-08']);
+        assert.equal(res.ok, false);
+        assert.match(res.message, /A Prime week must stand alone/); // It is a strict rule that Prime weeks cannot be batched with Non-Prime
+
+        const config = readConfigState();
+        const skipState = JSON.parse(config['Current Queue Skip State'] || '{}');
+        assert.equal(skipState['4444'], undefined); // no skips for failed attempt
+    } finally {
+        delete global.resolveParticipantSession_;
+    }
+});
+test('Vacation: One Non-Prime creates no skip', () => {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const tm = ss.getSheetByName('Turn Management');
+    tm.appendRow(['Charlie2', '666', '666', '', 'TRUE', '1', '1', 'TRUE', '9', '']);
+    tm.appendRow(['Dave2', '777', '777', '', 'TRUE', '2', '2', 'TRUE', '9', '']);
+
+    const wa = ss.getSheetByName('Week Availability');
+    wa.appendRow(['2025-03-08', 'Non-Prime', 'None', '4', '', '', '', '']);
+
+    writeConfigState({
+        'Current Phase': 'VACATION_SENIORITY',
+        'Current Queue Phase': 'VACATION_SENIORITY',
+        'Current Vacation Round': '1',
+        'Active Year': '2025',
+        'Current Queue Cursor': '0',
+        'Current Active Window': JSON.stringify([{
+             turnId: 't3', participantId: '666', cycle: 0, direction: 'FORWARD', position: 1
+        }]),
+        'Current Queue Skip State': '{}'
+    });
+
+    global.resolveParticipantSession_ = () => ({ participantId: '666', name: 'Charlie2' });
+    try {
+        const res = submitVacation('666', 't3', ['2025-03-08']);
+        assert.equal(res.ok, true);
+
+        const config = readConfigState();
+        const skipState = JSON.parse(config['Current Queue Skip State'] || '{}');
+        assert.equal(skipState['666'], undefined); // no skips for 1 non-prime attempt
+    } finally {
+        delete global.resolveParticipantSession_;
+    }
+});
+test('Vacation: Atomic Rollback Behavior - fatal error if rollback fails', () => {
+    writeConfigState({
+        'Phase Ready State': 'READY_VACATION_SENIORITY',
+        'Current Phase': 'VACATION_SENIORITY',
+        'Active Year': '2025',
+        'Current Active Window': JSON.stringify([{
+             turnId: 't1', participantId: '1111', cycle: 0, direction: 'FORWARD', position: 1
+        }])
+    });
+
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const tm = ss.getSheetByName('Turn Management');
+    // Ensure roster has this person
+    if (!tm.getDataRange().getValues().some(r => r[1] === '1111')) {
+        tm.appendRow(['Test1', '1111', '1111', '', 'TRUE', '1', '1', 'TRUE', '9', '']);
+    }
+
+    const wa = ss.getSheetByName('Week Availability');
+    if (!wa.getDataRange().getValues().some(r => r[0] === 'W3')) {
+        wa.appendRow(['W3', 'Non-Prime', 'None', '2', '', '', '', '']);
+    }
+
+    global.resolveParticipantSession_ = () => ({ participantId: '1111', name: 'Test1' });
+
+    try {
+        global.writeConfigState_ = () => { throw new Error('Simulated write failure'); };
+
+        // Mock setValues to throw an error so the compensating rollback fails.
+        // We only want to throw on the SECOND call (the rollback), not the FIRST call (the initial write).
+        const origGetRange = wa.getRange;
+        let callCount = 0;
+        wa.getRange = function(row, col, numRows, numCols) {
+            const range = origGetRange.call(wa, row, col, numRows, numCols);
+            const origSetValues = range.setValues;
+            range.setValues = function(vals) {
+                callCount++;
+                if (callCount === 2) {
+                    throw new Error('Simulated setValues rollback failure');
+                }
+                return origSetValues.call(range, vals);
+            };
+            return range;
+        };
+
+        let threwFatalError = false;
+        try {
+            submitVacation('1111', 't1', ['W3']);
+        } catch(e) {
+            threwFatalError = true;
+            assert.match(e.message, /Fatal Consistency Error/);
+        }
+        assert.ok(threwFatalError, "Expected fatal rollback error to be thrown");
+
+    } finally {
+        delete global.writeConfigState_;
+        delete global.resolveParticipantSession_;
+    }
 });

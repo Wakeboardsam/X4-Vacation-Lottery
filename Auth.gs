@@ -117,9 +117,14 @@ function loginParticipant_(pin) {
         const digest = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, rawToken, Utilities.Charset.UTF_8);
         const tokenHashHex = digest.map(b => (b < 0 ? b + 256 : b).toString(16).padStart(2, '0')).join('');
 
+    const participantId = String(data[matchIdx][map['Participant ID']] || '').trim();
+    if (!participantId) {
+        return _apiResponse(false, null, 'Vacation selection is temporarily unavailable because the participant roster requires administrator correction. No changes were made.');
+    }
+
         const sessionData = {
             expires: Date.now() + SESSION_EXPIRY_MS,
-            pin: pinStr // we store the lookup criteria to reread fresh data later
+        participantId: participantId // we store the lookup criteria to reread fresh data later
         };
 
         props.setProperty(SESSION_PREFIX_USER + tokenHashHex, JSON.stringify(sessionData));
@@ -179,7 +184,7 @@ function resolveParticipantSession_(token) {
     let matchRow = null;
     let duplicateCount = 0;
     for (let r = 1; r < data.length; r++) {
-         if (String(data[r][map['PIN']] || '').trim() === sess.pin) {
+         if (String(data[r][map['Participant ID']] || '').trim() === sess.participantId) {
               matchRow = data[r];
               duplicateCount++;
          }
@@ -190,7 +195,7 @@ function resolveParticipantSession_(token) {
         return null;
     }
 
-    if (!matchRow) return null; // Participant deleted or PIN changed
+    if (!matchRow) return null; // Participant deleted or ID changed
 
     let configMap;
     try {
@@ -201,6 +206,7 @@ function resolveParticipantSession_(token) {
     }
 
     return {
+        participantId: sess.participantId,
         name: matchRow[map['Name']],
         activeYear: configMap['Active Year'],
         setupState: configMap['Setup State'],

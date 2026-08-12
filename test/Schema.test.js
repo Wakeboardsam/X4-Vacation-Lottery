@@ -152,3 +152,16 @@ test('Schema: Extending rows automatically applies validation', () => {
     const res = initializeOrUpdateWorkbook();
     assert.equal(res.data.changed, true, "Should apply validation to new rows");
 });
+
+test('Schema: Week Availability loads by Week Start Date', () => {
+    const { getWeekAvailability } = require('../Vacation.gs');
+    const { initializeOrUpdateWorkbook } = require('../Schema.gs');
+    initializeOrUpdateWorkbook();
+
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName('Week Availability');
+
+    // Validate we can correctly parse it using 'Week Start Date'
+    const res = getWeekAvailability();
+    assert.equal(res.map['Week Start Date'], 0); // it is usually the first col
+});

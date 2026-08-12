@@ -31,7 +31,11 @@ function getAdminOptions_() {
             } else if (key === 'Default Vacation Week Capacity') {
                 capacity = Number(data[i][map['Value']]) || 4;
             } else if (key === 'Vacation ACTIVE-window size') {
-                windowSize = Number(data[i][map['Value']]) || 3;
+                const val = String(data[i][map['Value']]).trim();
+                if (val === '' || !Number.isInteger(Number(val)) || Number(val) <= 0) {
+                     throw new Error('Vacation ACTIVE-window size must be a positive whole number. Correct Admin Options before continuing.');
+                }
+                windowSize = Number(val);
             }
         }
     }
@@ -46,7 +50,7 @@ function getRosterForVacation_(activeYear, globalTarget) {
 
     const roster = [];
     for (let i = 1; i < data.length; i++) {
-        const pId = String(data[i][map['PIN']] || '').trim();
+        const pId = String(data[i][map['Participant ID']] || '').trim();
         if (!pId) continue;
 
         const active = String(data[i][map['Active for Year']] || '').toLowerCase() === 'true';
@@ -101,7 +105,13 @@ function submitVacation_(participantId, submittedTurnId, selections) {
         if (!targetTurn) return _vApi(false, null, 'Your turn is no longer active (it may have timed out or you are using a stale screen).');
         if (targetTurn.participantId !== participantId) return _vApi(false, null, 'Turn mismatch.');
 
-        const adminOpts = getAdminOptions_();
+        let adminOpts;
+        try {
+            adminOpts = getAdminOptions_();
+        } catch(e) {
+            return _vApi(false, null, 'Vacation selection is temporarily unavailable. No changes were made.');
+        }
+
         const globalTarget = adminOpts.target;
         const globalCapacity = adminOpts.capacity;
 
@@ -383,8 +393,16 @@ function submitVacation_(participantId, submittedTurnId, selections) {
             _vWrite(updates);
         } catch(writeErr) {
             // Rollback week assignments if config write fails
-            weekSheet.getRange(1, 1, originalWeekData.length, originalWeekData[0].length).setValues(originalWeekData);
-            throw new Error('Config save failed. Rollback applied. ' + writeErr.message);
+            try {
+                weekSheet.getRange(1, 1, originalWeekData.length, originalWeekData[0].length).setValues(originalWeekData);
+                // Rollback successful, report ordinary submission failure as per requirements
+                // "Your vacation selection could not be saved. No changes were made. Please try again."
+                console.error(`Vacation submission failed while saving queue state. Week Availability rollback succeeded; no changes were committed. Error: ${writeErr.message}`);
+                return _vApi(false, null, 'Your vacation selection could not be saved. No changes were made. Please try again.');
+            } catch (rollbackErr) {
+                // Fatal consistency error if restoring assignments fails
+                throw new Error(`Fatal Consistency Error: Config save failed (${writeErr.message}), AND compensating rollback failed (${rollbackErr.message}). Inspect the workbook before continuing.`);
+            }
         }
 
         return _vApi(true, {
@@ -393,7 +411,7 @@ function submitVacation_(participantId, submittedTurnId, selections) {
         }, 'Vacation weeks successfully selected.');
 
     } catch(e) {
-        if (e.message.includes('Rollback applied')) {
+        if (e.message.includes('Fatal Consistency Error')) {
             throw e; // Fatal consistency errors should blow up as requested
         }
         return _vApi(false, null, 'Error: ' + e.message);

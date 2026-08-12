@@ -327,3 +327,41 @@ test('calculateNextQueueState: Dispositions handled correctly, dynamic size', ()
     // p3's skip count should be consumed (deleted since it went to 0)
     assert.equal(result.nextState["Current Queue Skip State"]['p3'], undefined);
 });
+
+test('calculateNextQueueState: Authoritative Queue Ordering', () => {
+    const initialState = {
+        "Active Year": "2024",
+        "Current Queue Skip State": {},
+        "Current Active Window": [],
+        "Current Directional Window": [],
+        "Current Directional Window Completed": [],
+        "Active Window Generation": 0
+    };
+
+    const roster = [
+        { participantId: 'C', disposition: 'ELIGIBLE', seniority: 3, lottery: 1 },
+        { participantId: 'A', disposition: 'ELIGIBLE', seniority: 1, lottery: 2 },
+        { participantId: 'B', disposition: 'ELIGIBLE', seniority: 2, lottery: 3 },
+    ];
+
+    const config = { action: 'INIT', windowSize: 3, phase: 'VACATION_SENIORITY', orderSource: 'seniority', movementMode: 'FORWARD_ONLY' };
+    const { nextState } = calculateNextQueueState(initialState, roster, config);
+
+    assert.equal(nextState["Current Active Window"].length, 3);
+    assert.equal(nextState["Current Active Window"][0].participantId, 'A');
+    assert.equal(nextState["Current Active Window"][1].participantId, 'B');
+    assert.equal(nextState["Current Active Window"][2].participantId, 'C');
+
+    const config2 = { action: 'INIT', windowSize: 3, phase: 'VACATION_RANDOM', orderSource: 'lottery', movementMode: 'SERPENTINE' };
+    const roster2 = [
+        { participantId: 'C', disposition: 'ELIGIBLE', seniority: 3, lottery: 1 },
+        { participantId: 'A', disposition: 'ELIGIBLE', seniority: 1, lottery: 2 },
+        { participantId: 'B', disposition: 'ELIGIBLE', seniority: 2, lottery: 3 },
+    ];
+    const { nextState: nextState2 } = calculateNextQueueState(initialState, roster2, config2);
+
+    assert.equal(nextState2["Current Active Window"].length, 3);
+    assert.equal(nextState2["Current Active Window"][0].participantId, 'C');
+    assert.equal(nextState2["Current Active Window"][1].participantId, 'A');
+    assert.equal(nextState2["Current Active Window"][2].participantId, 'B');
+});
