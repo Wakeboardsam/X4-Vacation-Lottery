@@ -214,6 +214,7 @@
     <h1>X4 Vacation Lottery</h1>
     <div class="nav-links" id="navLinks">
       <span id="welcomeText" class="hidden" style="font-size: 0.875rem; font-weight: 500;"></span>
+      <a class="nav-link hidden" id="btnRules">Rules & Tips</a>
       <a class="nav-link hidden" id="btnLogout">Logout</a>
       <a class="nav-link" id="btnGoAdminLogin">Admin Login</a>
     </div>
@@ -269,6 +270,8 @@
       <div id="vacationSelectionArea" class="hidden" style="margin-top: 1.5rem; border-top: 1px solid var(--border-color); padding-top: 1.5rem;">
           <h3 style="margin-bottom: 0.5rem;">Vacation Selection</h3>
 
+          <div id="vacationReminder" style="margin-bottom: 1rem; font-size: 0.875rem; font-style: italic; color: var(--primary);" class="hidden"></div>
+
           <div style="background-color: var(--secondary-color); padding: 1rem; border-radius: 4px; margin-bottom: 1rem;">
               <div style="font-weight: bold; margin-bottom: 0.5rem;" id="pVacationStatus">You are ACTIVE. It is your turn.</div>
               <div id="pVacationProgress">0 of 9 weeks selected</div>
@@ -296,6 +299,43 @@
       <p style="margin-top: 1.5rem; font-size: 0.875rem; color: var(--text-muted);">
         Additional participant features will be enabled in future modules.
       </p>
+    </div>
+
+    <!-- RULES & TIPS MODAL -->
+    <div id="rulesModal" class="hidden" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; z-index: 2000; padding: 1rem;">
+      <div style="background: white; border-radius: 8px; width: 100%; max-width: 600px; max-height: 90vh; display: flex; flex-direction: column;">
+        <div style="padding: 1rem; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
+          <h2 style="margin: 0; font-size: 1.25rem;">Rules & Tips</h2>
+          <button id="btnRulesClose" type="button" class="btn-small btn-secondary" style="margin: 0;">Close</button>
+        </div>
+        <div style="padding: 1rem; overflow-y: auto; flex: 1;" id="rulesContentArea">
+          <ul id="rulesList" style="padding-left: 1.5rem; margin-bottom: 1.5rem;"></ul>
+
+          <div id="rulesAcknowledgmentSection" class="hidden" style="background-color: var(--bg-color); padding: 1rem; border-radius: 4px; border: 1px solid var(--border-color);">
+            <h3 style="font-size: 1rem; margin-bottom: 1rem;">Participant Preferences</h3>
+            <p style="font-size: 0.875rem; font-weight: bold; margin-bottom: 0.5rem;">I am willing to volunteer for one or more official holiday call positions this year.</p>
+            <div style="margin-bottom: 1rem;">
+              <label style="display: inline-flex; align-items: center; margin-right: 1rem; font-weight: normal;"><input type="radio" name="holidayVolunteer" value="YES" style="margin-right: 0.5rem;"> Yes</label>
+              <label style="display: inline-flex; align-items: center; font-weight: normal;"><input type="radio" name="holidayVolunteer" value="NO" style="margin-right: 0.5rem;"> No</label>
+            </div>
+
+            <p style="font-size: 0.875rem; font-weight: bold; margin-bottom: 0.5rem;">How would you like to participate in the optional Weekend & Holiday Transfer/Giveaway Round?</p>
+            <div style="margin-bottom: 1rem; display: flex; flex-direction: column; gap: 0.5rem;">
+              <label style="display: inline-flex; align-items: center; font-weight: normal;"><input type="radio" name="transferPref" value="OFFER" style="margin-right: 0.5rem;"> Offer assignments</label>
+              <label style="display: inline-flex; align-items: center; font-weight: normal;"><input type="radio" name="transferPref" value="RECEIVE" style="margin-right: 0.5rem;"> Receive assignments</label>
+              <label style="display: inline-flex; align-items: center; font-weight: normal;"><input type="radio" name="transferPref" value="BOTH" style="margin-right: 0.5rem;"> Both offer and receive</label>
+              <label style="display: inline-flex; align-items: center; font-weight: normal;"><input type="radio" name="transferPref" value="NONE" style="margin-right: 0.5rem;"> Do not participate</label>
+            </div>
+
+            <button id="btnAcknowledgeRules" type="button" style="width: 100%;" disabled>Acknowledge Rules & Save</button>
+          </div>
+          <div id="rulesReadonlyPreferences" class="hidden" style="background-color: var(--bg-color); padding: 1rem; border-radius: 4px; border: 1px solid var(--border-color); font-size: 0.875rem;">
+               <h3 style="font-size: 1rem; margin-bottom: 0.5rem;">Saved Preferences</h3>
+               <p><strong>Holiday Volunteer:</strong> <span id="roHoliday"></span></p>
+               <p><strong>Transfer Preference:</strong> <span id="roTransfer"></span></p>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- ADMIN DASHBOARD -->
@@ -442,15 +482,22 @@
        const btnLogout = document.getElementById('btnLogout');
        const btnAdmin = document.getElementById('btnGoAdminLogin');
        const welcome = document.getElementById('welcomeText');
+       const btnRules = document.getElementById('btnRules');
 
        if (viewId === 'viewParticipantShell' || viewId === 'viewAdminDashboard') {
            btnLogout.classList.remove('hidden');
            btnAdmin.classList.add('hidden');
            welcome.classList.remove('hidden');
            welcome.textContent = viewId === 'viewAdminDashboard' ? 'Administrator' : 'Participant';
+           if (viewId === 'viewParticipantShell') {
+               btnRules.classList.remove('hidden');
+           } else {
+               btnRules.classList.add('hidden');
+           }
        } else {
            btnLogout.classList.add('hidden');
            welcome.classList.add('hidden');
+           btnRules.classList.add('hidden');
            if (viewId === 'viewAdminLogin') {
                btnAdmin.classList.add('hidden');
            } else {
@@ -575,6 +622,7 @@
     let currentVacationData = null;
     let vacationMode = null; // 'Prime' or 'Non-Prime'
     let selectedWeeks = new Set();
+    let isModalMandatory = false;
 
     // --- Views ---
     function renderParticipantShell(proj) {
@@ -584,7 +632,10 @@
         document.getElementById('pStateActive').textContent = proj.isActive ? 'Active' : 'Inactive';
         showView('viewParticipantShell');
 
-        if (proj.isActive) {
+        if (proj.requiresRulesAcknowledgment) {
+            document.getElementById('vacationSelectionArea').classList.add('hidden');
+            openRulesModal(true);
+        } else if (proj.isActive) {
             loadParticipantVacationData();
         } else {
             document.getElementById('vacationSelectionArea').classList.add('hidden');
@@ -616,7 +667,13 @@
     function renderVacationData() {
         if (!currentVacationData) return;
 
-        const { turn, roster, weeks, config } = currentVacationData;
+        const { turn, roster, weeks, config, acknowledgment } = currentVacationData;
+
+        if (acknowledgment && !acknowledgment.acknowledged && acknowledgment.required) {
+            document.getElementById('vacationSelectionArea').classList.add('hidden');
+            openRulesModal(true);
+            return;
+        }
 
         let assignedCount = 0;
         weeks.forEach(w => {
@@ -791,6 +848,126 @@
         }
     }
 
+    // --- Rules & Tips ---
+    document.getElementById('btnRules').addEventListener('click', () => openRulesModal(false));
+    document.getElementById('btnRulesClose').addEventListener('click', closeRulesModal);
+
+    function openRulesModal(mandatory = false) {
+        isModalMandatory = mandatory;
+        const modal = document.getElementById('rulesModal');
+        const btnClose = document.getElementById('btnRulesClose');
+        const ackSection = document.getElementById('rulesAcknowledgmentSection');
+        const roPrefs = document.getElementById('rulesReadonlyPreferences');
+        const btnAck = document.getElementById('btnAcknowledgeRules');
+
+        modal.classList.remove('hidden');
+
+        if (mandatory) {
+            btnClose.classList.add('hidden');
+            ackSection.classList.remove('hidden');
+            roPrefs.classList.add('hidden');
+
+            // Clear existing radio buttons
+            document.querySelectorAll('input[name="holidayVolunteer"]').forEach(r => r.checked = false);
+            document.querySelectorAll('input[name="transferPref"]').forEach(r => r.checked = false);
+            btnAck.disabled = true;
+
+            // Add event listeners to radio buttons to enable submit
+            const checkEnable = () => {
+                 const hv = document.querySelector('input[name="holidayVolunteer"]:checked');
+                 const tp = document.querySelector('input[name="transferPref"]:checked');
+                 btnAck.disabled = !(hv && tp);
+            };
+            document.querySelectorAll('input[name="holidayVolunteer"]').forEach(r => r.addEventListener('change', checkEnable));
+            document.querySelectorAll('input[name="transferPref"]').forEach(r => r.addEventListener('change', checkEnable));
+
+        } else {
+            btnClose.classList.remove('hidden');
+            ackSection.classList.add('hidden');
+            roPrefs.classList.add('hidden'); // default hidden until loaded
+        }
+
+        document.getElementById('rulesList').innerHTML = '<li>Loading...</li>';
+
+        google.script.run
+            .withSuccessHandler(res => {
+                if (res.ok) {
+                    const ul = document.getElementById('rulesList');
+                    ul.innerHTML = '';
+                    res.data.rules.forEach(r => {
+                        const li = document.createElement('li');
+                        li.style.marginBottom = '0.5rem';
+                        li.style.whiteSpace = 'pre-wrap';
+                        li.textContent = r.text;
+                        ul.appendChild(li);
+                    });
+
+                    if (!mandatory && res.data.preferences) {
+                        roPrefs.classList.remove('hidden');
+                        document.getElementById('roHoliday').textContent = res.data.preferences.holidayVolunteer ? 'Yes' : 'No';
+                        let tpStr = 'None';
+                        if (res.data.preferences.transferGiver && res.data.preferences.transferReceiver) tpStr = 'Both';
+                        else if (res.data.preferences.transferGiver) tpStr = 'Offer';
+                        else if (res.data.preferences.transferReceiver) tpStr = 'Receive';
+                        document.getElementById('roTransfer').textContent = tpStr;
+                    }
+
+                    // Render Contextual Reminder on Vacation view if applicable
+                    if (res.data.remindersByContext && res.data.remindersByContext['VACATION'] && res.data.remindersByContext['VACATION'].length > 0) {
+                        const vacWarn = document.getElementById('vacationReminder');
+                        if (vacWarn) {
+                            vacWarn.textContent = res.data.remindersByContext['VACATION'].join('\n');
+                            vacWarn.classList.remove('hidden');
+                        }
+                    }
+                } else {
+                    document.getElementById('rulesList').innerHTML = '<li style="color:red;">Error loading rules</li>';
+                }
+            })
+            .apiGetParticipantRules(currentToken);
+    }
+
+    function closeRulesModal() {
+        if (isModalMandatory) return;
+        document.getElementById('rulesModal').classList.add('hidden');
+    }
+
+    document.getElementById('btnAcknowledgeRules').addEventListener('click', () => {
+        if (!isModalMandatory) return;
+        const hv = document.querySelector('input[name="holidayVolunteer"]:checked');
+        const tp = document.querySelector('input[name="transferPref"]:checked');
+        if (!hv || !tp) return;
+
+        showLoading(true);
+        google.script.run
+            .withSuccessHandler(res => {
+                showLoading(false);
+                if (res.ok) {
+                    showAlert(res.message, 'success');
+                    isModalMandatory = false;
+                    closeRulesModal();
+
+                    // Resume session cleanly without logging out or resetting selections yet
+                    google.script.run
+                        .withSuccessHandler(res2 => {
+                            if (res2.ok) {
+                                renderParticipantShell(res2.data);
+                            } else {
+                                handleLogout();
+                            }
+                        })
+                        .apiResolveParticipant(currentToken);
+                } else {
+                    showAlert(res.message, 'danger');
+                }
+            })
+            .withFailureHandler(err => {
+                showLoading(false);
+                showAlert('Network error submitting rules acknowledgment.');
+            })
+            .apiAcknowledgeRules(currentToken, hv.value, tp.value);
+    });
+
     function confirmSubmitVacation() {
         if (!currentVacationData || !currentVacationData.turn) return;
 
@@ -820,6 +997,9 @@
                     showAlert(res.message, 'danger');
                     if (res.message.includes('just selected by another participant')) {
                          loadParticipantVacationData(); // Refresh to clear conflicts
+                    } else if (res.message.includes('Please review and acknowledge the Rules')) {
+                         openRulesModal(true);
+                         loadParticipantVacationData();
                     }
                 }
             })
