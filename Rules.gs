@@ -155,7 +155,7 @@ function saveRulesAcknowledgment_(token, holidayVolunteerAnswer, transferPrefere
     try {
         const configMap = _rState();
         const activeYear = String(configMap['Active Year'] || '').trim();
-        if (!activeYear) return _rApi(false, null, 'Active Year is not configured.');
+        if (!activeYear || activeYear.length !== 4) return _rApi(false, null, 'Active Year is not configured.');
 
         const ss = SpreadsheetApp.getActiveSpreadsheet();
         const sheet = ss.getSheetByName('Turn Management');
