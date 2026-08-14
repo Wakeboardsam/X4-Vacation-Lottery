@@ -664,10 +664,23 @@
             .apiGetParticipantVacationData(currentToken);
     }
 
+    function renderVacationReminder(reminders) {
+        const vacWarn = document.getElementById('vacationReminder');
+        if (!vacWarn) return;
+        if (!reminders || reminders.length === 0) {
+            vacWarn.textContent = '';
+            vacWarn.classList.add('hidden');
+        } else {
+            vacWarn.textContent = reminders.join('\n');
+            vacWarn.classList.remove('hidden');
+        }
+    }
+
     function renderVacationData() {
         if (!currentVacationData) return;
 
-        const { turn, roster, weeks, config, acknowledgment } = currentVacationData;
+        const { turn, roster, weeks, config, acknowledgment, vacationReminders } = currentVacationData;
+        renderVacationReminder(vacationReminders);
 
         if (acknowledgment && !acknowledgment.acknowledged && acknowledgment.required) {
             document.getElementById('vacationSelectionArea').classList.add('hidden');
@@ -913,12 +926,8 @@
                     }
 
                     // Render Contextual Reminder on Vacation view if applicable
-                    if (res.data.remindersByContext && res.data.remindersByContext['VACATION'] && res.data.remindersByContext['VACATION'].length > 0) {
-                        const vacWarn = document.getElementById('vacationReminder');
-                        if (vacWarn) {
-                            vacWarn.textContent = res.data.remindersByContext['VACATION'].join('\n');
-                            vacWarn.classList.remove('hidden');
-                        }
+                    if (res.data.remindersByContext && res.data.remindersByContext['VACATION']) {
+                        renderVacationReminder(res.data.remindersByContext['VACATION']);
                     }
                 } else {
                     document.getElementById('rulesList').innerHTML = '<li style="color:red;">Error loading rules</li>';

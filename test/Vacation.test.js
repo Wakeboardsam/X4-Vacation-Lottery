@@ -486,10 +486,46 @@ test('Vacation: Unacknowledged participant blocked', () => {
             'Current Active Window': JSON.stringify([{ turnId: 't1', participantId: 'pid1' }])
         });
 
+        const wa = ss.getSheetByName('Week Availability');
+        const origWaData = JSON.stringify(wa.getDataRange().getValues());
+        const origConfigData = JSON.stringify(ss.getSheetByName('Config').getDataRange().getValues());
+
         const res = submitVacation('pid1', 't1', [{ weekId: '2025-01-01' }]);
         assert.equal(res.ok, false);
         assert.match(res.message, /Please review and acknowledge the Rules & Tips/);
+
+        const newWaData = JSON.stringify(wa.getDataRange().getValues());
+        const newConfigData = JSON.stringify(ss.getSheetByName('Config').getDataRange().getValues());
+
+        assert.equal(origWaData, newWaData, 'Week Availability state mutated');
+        assert.equal(origConfigData, newConfigData, 'Config state mutated');
     } finally {
         global._testUnack = false;
     }
+});
+
+test('Vacation: Invalid active year blocks submissions without mutating state', () => {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const tm = ss.getSheetByName('Turn Management');
+    tm.appendRow(['Test2', 'pid2', '1234', '', true, 1, 1, true, '', '', '', false, false, 'NONE', 'NONE', false, false, false, '', '2025']);
+
+    writeConfigState({
+        'Active Year': 'invalid-year',
+        'Current Phase': 'VACATION_SENIORITY',
+        'Current Active Window': JSON.stringify([{ turnId: 't2', participantId: 'pid2' }])
+    });
+
+    const wa = ss.getSheetByName('Week Availability');
+    const origWaData = JSON.stringify(wa.getDataRange().getValues());
+    const origConfigData = JSON.stringify(ss.getSheetByName('Config').getDataRange().getValues());
+
+    const res = submitVacation('pid2', 't2', [{ weekId: '2025-01-01' }]);
+    assert.equal(res.ok, false);
+    assert.match(res.message, /Vacation selection is temporarily unavailable. No changes were made./);
+
+    const newWaData = JSON.stringify(wa.getDataRange().getValues());
+    const newConfigData = JSON.stringify(ss.getSheetByName('Config').getDataRange().getValues());
+
+    assert.equal(origWaData, newWaData, 'Week Availability state mutated');
+    assert.equal(origConfigData, newConfigData, 'Config state mutated');
 });

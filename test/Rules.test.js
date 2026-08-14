@@ -222,3 +222,19 @@ test('Rules: Old legacy rules work with general context', () => {
     assert.equal(rules.rules.length > 0, true);
     assert.equal(rules.rules.find(r => r.text === 'Rule 1').context, 'GENERAL');
 });
+
+test('Rules: Reminder parsing groups correctly and ignores disabled', () => {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const rt = ss.getSheetByName('Rules & Tips');
+    rt.appendRow([50, 'Reminder 1', true, 'REM1', 'REMINDER', 'VACATION']);
+    rt.appendRow([60, 'Reminder 2', false, 'REM2', 'REMINDER', 'VACATION']);
+    rt.appendRow([70, 'Reminder 3', true, 'REM3', 'REMINDER', 'WEEKEND']);
+
+    const rulesContent = getRulesContent();
+    const vacRems = rulesContent.remindersByContext.VACATION || [];
+    assert.ok(vacRems.includes('Reminder 1'), 'Missing active vacation reminder');
+    assert.ok(!vacRems.includes('Reminder 2'), 'Should not include disabled reminder');
+
+    const weekendRems = rulesContent.remindersByContext.WEEKEND || [];
+    assert.ok(weekendRems.includes('Reminder 3'), 'Missing weekend reminder');
+});

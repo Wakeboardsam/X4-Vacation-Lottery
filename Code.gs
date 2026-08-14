@@ -72,6 +72,9 @@ function apiGetParticipantVacationData(token) {
         const roster = _vRoster(configMap['Active Year'], adminOpts.target);
         const pRoster = roster.find(r => r.participantId === proj.participantId);
 
+        const _getRules = typeof getRulesContent_ === 'function' ? getRulesContent_ : (typeof global !== 'undefined' && global.getRulesContent_ ? global.getRulesContent_ : (require('./Rules.gs').getRulesContent));
+        const rulesContent = _getRules();
+
         const { data, map } = _vAvail();
         const weeks = [];
         for (let r = 1; r < data.length; r++) {
@@ -107,6 +110,7 @@ function apiGetParticipantVacationData(token) {
             turn: turn,
             roster: pRoster,
             weeks: weeks,
+            vacationReminders: rulesContent.remindersByContext.VACATION || [],
             acknowledgment: {
                 activeYear: activeYear,
                 acknowledged: acknowledgmentState.acknowledged,
