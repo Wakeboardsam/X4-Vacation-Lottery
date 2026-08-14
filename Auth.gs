@@ -102,6 +102,12 @@ function loginParticipant_(pin) {
         return _apiResponse(false, null, 'System error reading state');
     }
 
+    const activeYear = String(configMap['Active Year'] || '').trim();
+
+    if (!/^\d{4}$/.test(activeYear)) {
+      return _apiResponse(false, null, 'Active Year is not configured correctly.');
+    }
+
     // Create session
     const lock = LockService.getScriptLock();
     if (!lock.tryLock(5000)) {
@@ -132,6 +138,8 @@ function loginParticipant_(pin) {
         lock.releaseLock();
     }
 
+    const rulesAcknowledgedYear = String(data[matchIdx][map['Rules Acknowledged Year']] || '').trim();
+
     return _apiResponse(true, {
         token: rawToken,
         participant: {
@@ -140,7 +148,9 @@ function loginParticipant_(pin) {
             setupState: configMap['Setup State'],
             currentPhase: configMap['Current Phase'],
             phaseReadyState: configMap['Phase Ready State'],
-            isActive: activeForYear
+            isActive: activeForYear,
+            rulesAcknowledgedYear: rulesAcknowledgedYear,
+            requiresRulesAcknowledgment: rulesAcknowledgedYear !== activeYear
         }
     }, 'Login successful');
 }
@@ -205,6 +215,14 @@ function resolveParticipantSession_(token) {
         return null;
     }
 
+    const activeYear = String(configMap['Active Year'] || '').trim();
+
+    if (!/^\d{4}$/.test(activeYear)) {
+        return null;
+    }
+
+    const rulesAcknowledgedYear = String(matchRow[map['Rules Acknowledged Year']] || '').trim();
+
     return {
         participantId: sess.participantId,
         name: matchRow[map['Name']],
@@ -212,7 +230,9 @@ function resolveParticipantSession_(token) {
         setupState: configMap['Setup State'],
         currentPhase: configMap['Current Phase'],
         phaseReadyState: configMap['Phase Ready State'],
-        isActive: Boolean(matchRow[map['Active for Year']])
+        isActive: Boolean(matchRow[map['Active for Year']]),
+        rulesAcknowledgedYear: rulesAcknowledgedYear,
+        requiresRulesAcknowledgment: rulesAcknowledgedYear !== activeYear
     };
 }
 

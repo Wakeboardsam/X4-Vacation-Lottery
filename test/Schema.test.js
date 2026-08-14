@@ -48,6 +48,10 @@ test('Schema: Fresh initialization creates required sheets, headers, config', ()
     for (const k in DEFAULT_CONFIG) {
         assert.ok(existingKeys.has(k), `Config key ${k} should exist`);
     }
+    const rulesData = ss.getSheetByName('Rules & Tips').getDataRange().getValues();
+    assert.ok(rulesData.length >= 10, 'Rules & Tips should have at least 10 rows (1 header + 9 defaults)');
+    const keySet = new Set(rulesData.slice(1).map(r => r[3])); // Content Key is 4th col
+    assert.ok(keySet.has('VACATION_ROUND_1_ORDER'), 'Missing default rule key');
 });
 
 test('Schema: Second run produces no changes', () => {
