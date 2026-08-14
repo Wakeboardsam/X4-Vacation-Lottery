@@ -340,6 +340,7 @@ class MockDataValidation {
   }
   requireFormulaSatisfied(formula) { this.type = 'FORMULA'; this.args = [formula]; return this; }
       setHelpText(text) { this.helpText = text; return this; }
+      setAllowInvalid(allow) { this._allowInvalid = allow; return this; }
       getCriteriaType() { return this.type || ''; }
       getCriteriaValues() { return this.args || []; }
       getHelpText() { return this.helpText || ''; }

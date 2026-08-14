@@ -8,6 +8,96 @@ const REQUIRED_SHEETS = [
   'Config'
 ];
 
+const RULE_CONTENT_TYPES = [
+  'RULE',
+  'REMINDER',
+  'SPOUSE_REMINDER'
+];
+
+const RULE_CONTEXTS = [
+  'GENERAL',
+  'VACATION',
+  'WEEKEND',
+  'HOLIDAY',
+  'TRANSFER',
+  'SPOUSE'
+];
+
+const DEFAULT_RULES_CONTENT = [
+  {
+    displayOrder: 10,
+    text: 'Vacation Round 1 uses seniority order.',
+    enabled: true,
+    key: 'VACATION_ROUND_1_ORDER',
+    type: 'RULE',
+    context: 'VACATION'
+  },
+  {
+    displayOrder: 20,
+    text: 'Vacation Round 2 and later use the annual randomized serpentine order.',
+    enabled: true,
+    key: 'VACATION_LATER_ROUND_ORDER',
+    type: 'RULE',
+    context: 'VACATION'
+  },
+  {
+    displayOrder: 30,
+    text: 'A Prime week must be selected alone.',
+    enabled: true,
+    key: 'VACATION_PRIME_ALONE',
+    type: 'RULE',
+    context: 'VACATION'
+  },
+  {
+    displayOrder: 40,
+    text: 'You may select one or two Non-Prime weeks.',
+    enabled: true,
+    key: 'VACATION_NON_PRIME_COUNT',
+    type: 'RULE',
+    context: 'VACATION'
+  },
+  {
+    displayOrder: 50,
+    text: 'Selecting two Non-Prime weeks skips your next scheduled turn.',
+    enabled: true,
+    key: 'VACATION_TWO_WEEK_SKIP',
+    type: 'RULE',
+    context: 'VACATION'
+  },
+  {
+    displayOrder: 60,
+    text: 'If you had Spring Break last year, you cannot select Spring Break during Rounds 1 through 3, but you become eligible in Round 4.',
+    enabled: true,
+    key: 'VACATION_SPRING_BREAK_RESTRICTION',
+    type: 'RULE',
+    context: 'VACATION'
+  },
+  {
+    displayOrder: 70,
+    text: 'The same Rounds 1 through 3 restriction applies to the exact Christmas week if you had Christmas week last year.',
+    enabled: true,
+    key: 'VACATION_CHRISTMAS_RESTRICTION',
+    type: 'RULE',
+    context: 'VACATION'
+  },
+  {
+    displayOrder: 80,
+    text: 'Prime weeks must be selected alone. You may select one or two Non-Prime weeks; selecting two will skip your next scheduled turn.',
+    enabled: true,
+    key: 'VACATION_SELECTION_REMINDER',
+    type: 'REMINDER',
+    context: 'VACATION'
+  },
+  {
+    displayOrder: 90,
+    text: 'There’s a holiday near this weekend. Would taking the holiday too save someone else’s plans—and is your spouse going to approve this choice? 😉',
+    enabled: true,
+    key: 'WEEKEND_SPOUSE_REMINDER',
+    type: 'SPOUSE_REMINDER',
+    context: 'SPOUSE'
+  }
+];
+
 const REQUIRED_HEADERS = {
   'Turn Management': [
     "Name", "Participant ID", "PIN", "Phone Number", "Active for Year", "Seniority Position", "Lottery Position",
@@ -21,7 +111,14 @@ const REQUIRED_HEADERS = {
     "Person1", "Person2", "Person3", "Person4"
   ],
   'Admin Options': ["Setting", "Value", "Sensitive", "Description"],
-  'Rules & Tips': ["Display Order", "Rule Text", "Enabled"],
+  'Rules & Tips': [
+    "Display Order",
+    "Rule Text",
+    "Enabled",
+    "Content Key",
+    "Content Type",
+    "Context"
+  ],
   'Soft Holiday Warnings': ["Warning Text", "Enabled"],
   'Config': ["Key", "Value", "Description"]
 };
@@ -41,6 +138,7 @@ function planSchema_(ss) {
         sheetsToAdd: [],
         headersToAppend: {},
         configKeysToAdd: {},
+        rulesRowsToAdd: [],
         validationsToApply: [],
         formatsToApply: [],
         conflicts: [],
@@ -77,8 +175,13 @@ function planSchema_(ss) {
                 plan.validationsToApply.push({ sheetName, col: headMap['Special Week'] + 1, type: 'LIST_SPECIAL' });
             } else if (sheetName === 'Admin Options') {
                 plan.validationsToApply.push({ sheetName, col: 3, type: 'CHECKBOX' }); // Sensitive
+
             } else if (sheetName === 'Rules & Tips') {
                 plan.validationsToApply.push({ sheetName, col: 3, type: 'CHECKBOX' }); // Enabled
+                // Schedule all defaults if sheet is fresh
+                for (const defRule of DEFAULT_RULES_CONTENT) {
+                    plan.rulesRowsToAdd.push(defRule);
+                }
             } else if (sheetName === 'Soft Holiday Warnings') {
                 plan.validationsToApply.push({ sheetName, col: 2, type: 'CHECKBOX' }); // Enabled
             }
@@ -227,6 +330,61 @@ function planSchema_(ss) {
                         plan.validationsToApply.push({ sheetName, col: headMap[boolCol] + 1, type: 'CHECKBOX' });
                     }
 
+                 }
+
+                 if (sheetName === 'Rules & Tips') {
+                     // Check for duplicate keys, invalid types/contexts
+                     const existingKeys = new Set();
+                     const duplicateKeys = new Set();
+                     if (headMap['Content Key'] !== undefined) {
+                         for (let r = 1; r < data.length; r++) {
+                             const key = String(data[r][headMap['Content Key']] || '').trim();
+                             if (key) {
+                                 if (existingKeys.has(key)) duplicateKeys.add(key);
+                                 existingKeys.add(key);
+                             }
+                         }
+                         if (duplicateKeys.size > 0) {
+                             plan.conflicts.push(`Duplicate nonblank Content Keys found in 'Rules & Tips': ${Array.from(duplicateKeys).join(', ')}`);
+                         }
+                     }
+                     if (headMap['Content Type'] !== undefined) {
+                         for (let r = 1; r < data.length; r++) {
+                             const typeVal = String(data[r][headMap['Content Type']] || '').trim();
+                             if (typeVal !== '' && !RULE_CONTENT_TYPES.includes(typeVal)) {
+                                 plan.conflicts.push(`Invalid nonblank Content Type found in 'Rules & Tips' at row ${r+1}: ${typeVal}`);
+                             }
+                         }
+                         const rule = buildValidationRule_('DROPDOWN_RULE_CONTENT_TYPE');
+                         const lastRow = Math.max(sheet.getMaxRows(), 2);
+                         const existingTop = sheet.getRange(2, headMap['Content Type'] + 1).getDataValidation();
+                         const existingBottom = sheet.getRange(lastRow - 1, headMap['Content Type'] + 1).getDataValidation();
+                         if (normalizeValidation_(existingTop) !== normalizeValidation_(rule) || normalizeValidation_(existingBottom) !== normalizeValidation_(rule)) {
+                             plan.validationsToApply.push({ sheetName, col: headMap['Content Type'] + 1, type: 'DROPDOWN_RULE_CONTENT_TYPE' });
+                         }
+                     }
+                     if (headMap['Context'] !== undefined) {
+                         for (let r = 1; r < data.length; r++) {
+                             const ctxVal = String(data[r][headMap['Context']] || '').trim();
+                             if (ctxVal !== '' && !RULE_CONTEXTS.includes(ctxVal)) {
+                                 plan.conflicts.push(`Invalid nonblank Context found in 'Rules & Tips' at row ${r+1}: ${ctxVal}`);
+                             }
+                         }
+                         const rule = buildValidationRule_('DROPDOWN_RULE_CONTEXT');
+                         const lastRow = Math.max(sheet.getMaxRows(), 2);
+                         const existingTop = sheet.getRange(2, headMap['Context'] + 1).getDataValidation();
+                         const existingBottom = sheet.getRange(lastRow - 1, headMap['Context'] + 1).getDataValidation();
+                         if (normalizeValidation_(existingTop) !== normalizeValidation_(rule) || normalizeValidation_(existingBottom) !== normalizeValidation_(rule)) {
+                             plan.validationsToApply.push({ sheetName, col: headMap['Context'] + 1, type: 'DROPDOWN_RULE_CONTEXT' });
+                         }
+                     }
+
+                     // Schedule missing default rules by Content Key
+                     for (const defRule of DEFAULT_RULES_CONTENT) {
+                         if (!existingKeys.has(defRule.key)) {
+                             plan.rulesRowsToAdd.push(defRule);
+                         }
+                     }
                  }
             }
 
@@ -393,7 +551,8 @@ function planSchema_(ss) {
                       Object.keys(plan.headersToAppend).length > 0 ||
                       Object.keys(plan.configKeysToAdd).length > 0 ||
                       plan.validationsToApply.length > 0 ||
-                      plan.formatsToApply.length > 0;
+                      plan.formatsToApply.length > 0 ||
+                      plan.rulesRowsToAdd.length > 0;
     return plan;
 
 }
@@ -430,6 +589,19 @@ function buildValidationRule_(type) {
 
     if (type === 'DROPDOWN_SETUP') return SpreadsheetApp.newDataValidation().requireValueInList(_VALID_SETUP_STATES).build();
     if (type === 'DROPDOWN_PHASE') return SpreadsheetApp.newDataValidation().requireValueInList(_VALID_PHASES).build();
+    if (type === 'DROPDOWN_RULE_CONTENT_TYPE') {
+      return SpreadsheetApp.newDataValidation()
+        .requireValueInList(RULE_CONTENT_TYPES)
+        .setAllowInvalid(false)
+        .build();
+    }
+
+    if (type === 'DROPDOWN_RULE_CONTEXT') {
+      return SpreadsheetApp.newDataValidation()
+        .requireValueInList(RULE_CONTEXTS)
+        .setAllowInvalid(false)
+        .build();
+    }
     if (type === 'DROPDOWN_READY') return SpreadsheetApp.newDataValidation().requireValueInList(_VALID_READY_STATES).build();
     if (type === 'DROPDOWN_DIR') return SpreadsheetApp.newDataValidation().requireValueInList(_VALID_SERPENTINE_DIRECTIONS).build();
 
@@ -499,6 +671,32 @@ function initializeOrUpdateWorkbook_() {
                    return row;
                 });
                 configSh.getRange(lastRow + 1, 1, rowsToAppend.length, rowsToAppend[0].length).setValues(rowsToAppend);
+            }
+        }
+    }
+
+    if (plan.rulesRowsToAdd && plan.rulesRowsToAdd.length > 0) {
+        const rulesSh = ss.getSheetByName('Rules & Tips');
+        if (rulesSh) {
+            const rulesData = rulesSh.getDataRange().getValues();
+            const rulesMap = _getHMap(rulesData);
+
+            if (rulesMap['Display Order'] !== undefined && rulesMap['Content Key'] !== undefined) {
+                let lastRow = rulesSh.getLastRow();
+                const numCols = Math.max(rulesSh.getLastColumn(), 6);
+
+                const rowsToAppend = plan.rulesRowsToAdd.map(rule => {
+                    const row = new Array(numCols).fill('');
+                    if (rulesMap['Display Order'] !== undefined) row[rulesMap['Display Order']] = rule.displayOrder;
+                    if (rulesMap['Rule Text'] !== undefined) row[rulesMap['Rule Text']] = rule.text;
+                    if (rulesMap['Enabled'] !== undefined) row[rulesMap['Enabled']] = rule.enabled;
+                    if (rulesMap['Content Key'] !== undefined) row[rulesMap['Content Key']] = rule.key;
+                    if (rulesMap['Content Type'] !== undefined) row[rulesMap['Content Type']] = rule.type;
+                    if (rulesMap['Context'] !== undefined) row[rulesMap['Context']] = rule.context;
+                    return row;
+                });
+
+                rulesSh.getRange(lastRow + 1, 1, rowsToAppend.length, rowsToAppend[0].length).setValues(rowsToAppend);
             }
         }
     }

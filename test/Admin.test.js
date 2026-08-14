@@ -48,7 +48,9 @@ test('Security: Public API allowlist enforced', () => {
         'apiBeginVacationRound1',
         'apiEndVacationEarly',
         'apiSubmitVacation',
-        'apiGetParticipantVacationData'
+        'apiGetParticipantVacationData',
+        'apiGetParticipantRules',
+        'apiAcknowledgeRules'
     ]);
 
     const codeFile = fs.readFileSync(path.join(__dirname, '../Code.gs'), 'utf8');

@@ -100,6 +100,38 @@ function submitVacation_(participantId, submittedTurnId, selections) {
             return _vApi(false, null, 'Vacation phase is not active.');
         }
 
+        const activeYear = String(config['Active Year'] || '').trim();
+
+        if (!/^\d{4}$/.test(activeYear)) {
+          return _vApi(
+            false,
+            null,
+            'Vacation selection is temporarily unavailable. No changes were made.'
+          );
+        }
+
+        const acknowledged =
+          typeof isParticipantAcknowledgedForYear_ === 'function'
+            ? isParticipantAcknowledgedForYear_(
+                participantId,
+                activeYear
+              )
+            : require('./Rules.gs')
+                .isParticipantAcknowledgedForYear(
+                  participantId,
+                  activeYear
+                );
+
+        if (!acknowledged) {
+          return _vApi(
+            false,
+            null,
+            'Please review and acknowledge the Rules & Tips for ' +
+              activeYear +
+              ' before making a selection. No changes were made.'
+          );
+        }
+
         const activeWindow = JSON.parse(config['Current Active Window'] || '[]');
         const targetTurn = activeWindow.find(t => t.turnId === submittedTurnId);
         if (!targetTurn) return _vApi(false, null, 'Your turn is no longer active (it may have timed out or you are using a stale screen).');

@@ -10,6 +10,18 @@ const { resetMock } = require('./gas-mock');
 beforeEach(() => {
     resetMock();
     initializeOrUpdateWorkbook(); // Ensure schema exists for participant auth tests
+    // Ensure Active Year is set for validation
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const configSh = ss.getSheetByName('Config');
+    if (configSh) {
+        const data = configSh.getDataRange().getValues();
+        for (let i = 1; i < data.length; i++) {
+            if (data[i][0] === 'Active Year') {
+                configSh.getRange(i + 1, 2).setValue('2024');
+                break;
+            }
+        }
+    }
 });
 
 test('Auth: Reject blank admin code in setup', () => {

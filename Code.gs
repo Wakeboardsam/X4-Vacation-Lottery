@@ -53,6 +53,18 @@ function apiGetParticipantVacationData(token) {
         const _readC = typeof readConfigState_ === 'function' ? readConfigState_ : (typeof global !== 'undefined' && global.readConfigState_ ? global.readConfigState_ : (require('./State.gs').readConfigState));
 
         const configMap = _readC();
+        const activeYear = String(configMap['Active Year'] || '').trim();
+        if (!/^\d{4}$/.test(activeYear)) {
+            return apiResponse_(false, null, 'Active Year is not configured correctly.');
+        }
+
+        const _getAck = typeof getParticipantAcknowledgmentState_ === 'function' ? getParticipantAcknowledgmentState_ : (typeof global !== 'undefined' && global.getParticipantAcknowledgmentState_ ? global.getParticipantAcknowledgmentState_ : (require('./Rules.gs').getParticipantAcknowledgmentState));
+        const acknowledgmentState = _getAck(proj.participantId, activeYear);
+
+        if (!acknowledgmentState) {
+            return apiResponse_(false, null, 'Participant record not found or duplicate.');
+        }
+
         const activeWindow = JSON.parse(configMap['Current Active Window'] || '[]');
         const turn = activeWindow.find(t => t.participantId === proj.participantId);
 
@@ -95,6 +107,11 @@ function apiGetParticipantVacationData(token) {
             turn: turn,
             roster: pRoster,
             weeks: weeks,
+            acknowledgment: {
+                activeYear: activeYear,
+                acknowledged: acknowledgmentState.acknowledged,
+                required: !acknowledgmentState.acknowledged
+            },
             config: {
                  phase: configMap['Current Phase'],
                  round: configMap['Current Vacation Round'],
@@ -105,6 +122,102 @@ function apiGetParticipantVacationData(token) {
         Logger.log(e);
         return apiResponse_(false, null, 'An internal error occurred: ' + e.message);
     }
+}
+
+function apiGetParticipantRules(token) {
+  try {
+    const _reqPart = typeof resolveParticipantSession_ === 'function' ? resolveParticipantSession_ : (typeof global !== 'undefined' && global.resolveParticipantSession_ ? global.resolveParticipantSession_ : (require('./Auth.gs').resolveParticipantSession));
+    const proj = _reqPart(token);
+
+    if (!proj) {
+      return apiResponse_(
+        false,
+        null,
+        'Session expired or invalid'
+      );
+    }
+
+    const _readC = typeof readConfigState_ === 'function' ? readConfigState_ : (typeof global !== 'undefined' && global.readConfigState_ ? global.readConfigState_ : (require('./State.gs').readConfigState));
+    const config = _readC();
+    const activeYear =
+      String(config['Active Year'] || '').trim();
+
+    if (!/^\d{4}$/.test(activeYear)) {
+      return apiResponse_(
+        false,
+        null,
+        'Active Year is not configured correctly.'
+      );
+    }
+
+    const _getAck = typeof getParticipantAcknowledgmentState_ === 'function' ? getParticipantAcknowledgmentState_ : (typeof global !== 'undefined' && global.getParticipantAcknowledgmentState_ ? global.getParticipantAcknowledgmentState_ : (require('./Rules.gs').getParticipantAcknowledgmentState));
+    const state =
+      _getAck(
+        proj.participantId,
+        activeYear
+      );
+
+    if (!state) {
+      return apiResponse_(
+        false,
+        null,
+        'Participant record not found or duplicate.'
+      );
+    }
+
+    const _getRules = typeof getRulesContent_ === 'function' ? getRulesContent_ : (typeof global !== 'undefined' && global.getRulesContent_ ? global.getRulesContent_ : (require('./Rules.gs').getRulesContent));
+    const content = _getRules();
+
+    return apiResponse_(true, {
+      rules: content.rules,
+      remindersByContext:
+        content.remindersByContext,
+      spouseReminder: content.spouseReminder,
+      activeYear: activeYear,
+      acknowledged: state.acknowledged,
+      requiresAcknowledgment:
+        !state.acknowledged,
+      preferences: {
+        holidayVolunteer:
+          state.holidayVolunteer,
+        transferGiver:
+          state.transferGiver,
+        transferReceiver:
+          state.transferReceiver
+      }
+    }, 'Rules retrieved.');
+  } catch (e) {
+    Logger.log(e);
+
+    return apiResponse_(
+      false,
+      null,
+      'An internal error occurred.'
+    );
+  }
+}
+
+function apiAcknowledgeRules(
+  token,
+  holidayVolunteerAnswer,
+  transferPreference
+) {
+  try {
+    const _saveRules = typeof saveRulesAcknowledgment_ === 'function' ? saveRulesAcknowledgment_ : (typeof global !== 'undefined' && global.saveRulesAcknowledgment_ ? global.saveRulesAcknowledgment_ : (require('./Rules.gs').saveRulesAcknowledgment));
+    return _saveRules(
+      token,
+      holidayVolunteerAnswer,
+      transferPreference
+    );
+  } catch (e) {
+    Logger.log(e);
+
+    return apiResponse_(
+      false,
+      null,
+      'An internal error occurred.'
+    );
+  }
 }
 
 function apiLoginAdmin(code) {
@@ -202,4 +315,21 @@ function apiInspectSchema(token) {
         Logger.log(e);
         return apiResponse_(false, null, 'An internal error occurred.');
     }
+}
+
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = {
+        apiGetParticipantVacationData,
+        apiGetParticipantRules,
+        apiAcknowledgeRules,
+        apiLoginAdmin,
+        apiInitializeWorkbook,
+        apiAdminTransitionPhase,
+        apiAdminSetVacationOpts,
+        apiAdminBeginVacationRound1,
+        apiAdminEndVacationEarly,
+        apiAdminCalculateNextQueueState,
+        apiSubmitVacation,
+        apiInspectSchema
+    };
 }

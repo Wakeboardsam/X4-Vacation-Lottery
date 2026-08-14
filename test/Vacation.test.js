@@ -3,6 +3,12 @@ const assert = require('node:assert/strict');
 require('./gas-mock-ext');
 
 const { submitVacation, getRosterForVacation, getAdminOptions, getWeekAvailability } = require('../Vacation.gs');
+const Rules = require('../Rules.gs');
+Rules.isParticipantAcknowledgedForYear = function(pid, year) {
+    if (pid === 'pid1' && year === '2025' && global._testUnack) return false;
+    return true;
+};
+
 const { writeConfigState, readConfigState } = require('../State.gs');
 const { initializeOrUpdateWorkbook } = require('../Schema.gs');
 const { beginVacationRound1, endVacationEarly } = require('../Admin.gs');
@@ -10,6 +16,17 @@ const { beginVacationRound1, endVacationEarly } = require('../Admin.gs');
 beforeEach(() => {
     global.resetMockData();
     initializeOrUpdateWorkbook();
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const configSh = ss.getSheetByName('Config');
+    if (configSh) {
+        const data = configSh.getDataRange().getValues();
+        for (let i = 1; i < data.length; i++) {
+            if (data[i][0] === 'Active Year') {
+                configSh.getRange(i + 1, 2).setValue('2025');
+                break;
+            }
+        }
+    }
 });
 
 test('Vacation: Roster uses override or default target', () => {
@@ -453,5 +470,26 @@ test('Vacation: Atomic Rollback Behavior - fatal error if rollback fails', () =>
     } finally {
         delete global.writeConfigState_;
         delete global.resolveParticipantSession_;
+    }
+});
+
+test('Vacation: Unacknowledged participant blocked', () => {
+    try {
+        global._testUnack = true;
+        const ss = SpreadsheetApp.getActiveSpreadsheet();
+        const tm = ss.getSheetByName('Turn Management');
+        tm.appendRow(['Test1', 'pid1', '1234', '', true, 1, 1, true, '', '', '', false, false, 'NONE', 'NONE', false, false, false, '', '']);
+
+        writeConfigState({
+            'Active Year': '2025',
+            'Current Phase': 'VACATION_SENIORITY',
+            'Current Active Window': JSON.stringify([{ turnId: 't1', participantId: 'pid1' }])
+        });
+
+        const res = submitVacation('pid1', 't1', [{ weekId: '2025-01-01' }]);
+        assert.equal(res.ok, false);
+        assert.match(res.message, /Please review and acknowledge the Rules & Tips/);
+    } finally {
+        global._testUnack = false;
     }
 });
